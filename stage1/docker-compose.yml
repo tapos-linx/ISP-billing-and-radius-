@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # ====================================================================
+  # PostgreSQL 16: Monthly Partitioned radacct & High-Speed Lookups
+  # Optimized for < 10ms Access-Accept query latency on WSL2
+  # ====================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: isp_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: isp_billing
+      POSTGRES_USER: radius_user
+      POSTGRES_PASSWORD: SecretRadiusDbPassword2026!
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/01-init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
+      - ./sql/02-seed-test-data.sql:/docker-entrypoint-initdb.d/02-seed-test-data.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - isp_internal_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U radius_user -d isp_billing"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    command: >
+      postgres
+        -c shared_buffers=1024MB
+        -c effective_cache_size=3072MB
+        -c work_mem=64MB
+        -c maintenance_work_mem=256MB
+        -c min_wal_size=1GB
+        -c max_wal_size=4GB
+        -c checkpoint_completion_target=0.9
+        -c wal_buffers=16MB
+        -c default_statistics_target=100
+        -c random_page_cost=1.1
+        -c effective_io_concurrency=200
+        -c max_connections=200
+
+  # ====================================================================
+  # Redis 7: Ultra-fast Session Caching & Queue Buffer
+  # ====================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: isp_redis
+    restart: always
+    command: redis-server --requirepass SecretRedisToken2026! --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - isp_internal_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "SecretRedisToken2026!", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  # ====================================================================
+  # FreeRADIUS 3.2: High-Performance RADIUS Daemon with rlm_sql
+  # Strips Windows CRLF line endings at launch via entrypoint script
+  # ====================================================================
+  freeradius:
+    image: freeradius/freeradius-server:3.2.3-alpine
+    container_name: isp_freeradius
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "1812:1812/udp" # RADIUS Authentication
+      - "1813:1813/udp" # RADIUS Accounting
+      - "3799:3799/udp" # RFC 3576 CoA / PoD Disconnect
+    volumes:
+      - ./freeradius/radiusd.conf:/etc/raddb/radiusd.conf:ro
+      - ./freeradius/clients.conf:/etc/raddb/clients.conf:ro
+      - ./freeradius/mods-available/sql:/etc/raddb/mods-available/sql:ro
+      - ./scripts/entrypoint-freeradius.sh:/docker-entrypoint-init.sh:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Strip Windows CRLF (\r) from all configuration files before starting daemon
+        tr -d '\r' < /etc/raddb/radiusd.conf > /tmp/radiusd.conf && cp /tmp/radiusd.conf /etc/raddb/radiusd.conf
+        tr -d '\r' < /etc/raddb/clients.conf > /tmp/clients.conf && cp /tmp/clients.conf /etc/raddb/clients.conf
+        tr -d '\r' < /etc/raddb/mods-available/sql > /etc/raddb/mods-enabled/sql
+
+        # Enable SQL module links
+        ln -sf /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/sql
+
+        # Wait for PostgreSQL port readiness
+        until nc -z -v -w3 postgres 5432; do
+          echo "Waiting for PostgreSQL at postgres:5432..."
+          sleep 1
+        done
+
+        echo "[SUCCESS] Starting FreeRADIUS 3.2 with rlm_sql on UDP ports 1812, 1813, 3799..."
+        exec radiusd -f -l stdout
+    networks:
+      - isp_internal_net
+
+networks:
+  isp_internal_net:
+    name: isp_internal_net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    name: isp_postgres_data
+  redis_data:
+    name: isp_redis_data

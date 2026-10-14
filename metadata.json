@@ -1,0 +1,6 @@
+{
+  "name": "ISP Billing",
+  "description": "Telecom BSS/OSS & Network Automation architect console for FreeRADIUS 3.x, Mikrotik RouterOS v7, PostgreSQL 16, RFC 3576 CoA/PoD, and Payment Webhooks by Tapos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
