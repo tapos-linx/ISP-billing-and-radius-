@@ -139,7 +139,25 @@ docker exec -it isp_postgres psql -U radius_user -d isp_billing -c "\d+ radacct"
 
 ---
 
-## 4. Troubleshooting Windows Issues
+## 4. Installing as a Windows Desktop App (PWA via Microsoft Edge / Chrome)
+
+Thanks to the root `manifest.json`, the ISP Billing Customer Self-Care and Admin Console can be installed directly onto Windows 10/11 as a native-like desktop application:
+
+1. Open **Microsoft Edge** or **Google Chrome** on Windows.
+2. Navigate to your running ISP Billing web instance (e.g., `http://localhost:8000` or `https://your-isp-domain.com`).
+3. Notice the **"App available. Install ISP Billing"** icon in the browser address bar (right-hand side).
+4. Click the **Install** button, or click the browser settings menu (**...**) → **Apps** → **"Install ISP Billing"**.
+5. When prompted, select:
+   - [x] **Pin to taskbar**
+   - [x] **Pin to Start**
+   - [x] **Create Desktop shortcut**
+   - [x] **Auto-start on device sign-in** (optional for NOC operators)
+6. Click **Allow**.
+7. The app now opens in an independent, hardware-accelerated Windows window with custom theme colors (`#0284c7`), app shortcuts in the Windows taskbar jump list, and full offline caching capabilities.
+
+---
+
+## 5. Troubleshooting Windows Issues
 
 ### Issue 1: Port 5432 Already In Use
 If you already have a local PostgreSQL instance running on Windows:

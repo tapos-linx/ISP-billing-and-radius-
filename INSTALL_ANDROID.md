@@ -79,6 +79,20 @@ If you have Android SDK Platform Tools installed on your computer:
 
 ---
 
+### Method D: Install as a Progressive Web App (PWA) on Android Home Screen
+
+The repository includes a W3C Web App Manifest (`manifest.json`) and high-resolution adaptive launcher icons (`/icons/`) configured for Android PWA installation:
+
+1. Open your mobile browser (**Google Chrome**, **Edge**, or **Samsung Internet**) on your Android device and navigate to your deployed Self-Care web domain or local IP (e.g., `https://your-isp-domain.com` or `http://10.10.10.254:8000`).
+2. Chrome will display the **"Add ISP Billing to Home screen"** or **"Install app"** banner.
+3. If the banner does not appear automatically:
+   - Tap the **Three Dots (⋮)** menu in the top-right corner of Chrome.
+   - Tap **"Install app"** or **"Add to Home screen"**.
+4. Confirm installation.
+5. The **ISP Billing** icon will be installed onto your Android home screen and app drawer, running in a full-screen standalone window with zero browser URL bar or address clutter.
+
+---
+
 ## 3. Command-Line APK Build
 
 You can compile the Android application directly from terminal without opening Android Studio:

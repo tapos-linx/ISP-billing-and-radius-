@@ -280,6 +280,8 @@ The Android application includes a real-time hardware simulation suite:
 │   ├── setup-windows.bat                # Windows 1-click launcher
 │   ├── build-apk.bat                    # Windows 1-click Android APK build
 │   └── build-apk.sh                     # Linux/macOS Android APK build
+├── icons/                               # PWA app icons (192x192, 512x512, maskable)
+├── manifest.json                        # W3C Web App Manifest for Android & Windows PWA
 ├── docker-compose.yml                   # Production FreeRADIUS + PostgreSQL 16 + Redis 7 stack
 ├── gradlew & gradlew.bat                # Gradle 9.3.1 build wrapper
 ├── metadata.json                        # AI Studio project platform identity
