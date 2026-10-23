@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>ISP Billing & Customer Self-Care</title>
+  
+  <!-- PWA & Splash Screen Metadata -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#041a31">
+  <meta name="background-color" content="#041a31">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ISP Billing">
+  
+  <!-- Apple Touch & High-Res App Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png">
+  <link rel="icon" type="image/png" sizes="1024x1024" href="/icons/icon-1024x1024.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+  
+  <style>
+    /* Zero-Flash Mobile Splash & Theme Foundations */
+    :root {
+      --bg-primary: #041a31;
+      --bg-card: #0a2544;
+      --bg-card-hover: #0e3057;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-subtle: #1e3a5f;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    /* Seamless Splash Screen Transition Overlay */
+    #splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.35s;
+    }
+
+    #splash-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-logo {
+      width: 128px;
+      height: 128px;
+      border-radius: 28px;
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+      animation: pulseSplash 1.8s ease-in-out infinite;
+    }
+
+    .splash-title {
+      margin-top: 24px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+    }
+
+    .splash-subtitle {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .splash-spinner {
+      margin-top: 28px;
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes pulseSplash {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Main Application Container */
+    .app-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px 16px 80px 16px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.4s ease 0.1s, transform 0.4s ease 0.1s;
+    }
+
+    .app-container.loaded {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Navigation Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 24px;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+    }
+
+    .brand-text h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Grid & Cards */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (min-width: 640px) {
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+      .grid-3 {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 20px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+    }
+
+    .card-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .card-meta {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--accent);
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #0284c7);
+      width: 68%;
+      border-radius: 4px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-bkash {
+      background: #e2136e;
+      color: #ffffff;
+      margin-top: 12px;
+    }
+
+    .btn-bkash:hover {
+      background: #c70d5e;
+    }
+
+    .btn-secondary {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      margin-top: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(56, 189, 248, 0.25);
+    }
+
+    /* Toast notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #0f172a;
+      border: 1px solid var(--accent);
+      color: #f8fafc;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      z-index: 10000;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Native-Like Splash Transition Layer -->
+  <div id="splash-screen">
+    <img src="/icons/icon-512x512.png" alt="ISP Billing Emblem" class="splash-logo">
+    <div class="splash-title">ISP Billing & Self-Care</div>
+    <div class="splash-subtitle">FreeRADIUS 3.2 • Mikrotik RouterOS v7</div>
+    <div class="splash-spinner"></div>
+  </div>
+
+  <!-- Primary PWA Application View -->
+  <div class="app-container" id="app">
+    <header>
+      <div class="brand-wrap">
+        <img src="/icons/icon-192x192.png" alt="Logo" class="brand-icon">
+        <div class="brand-text">
+          <h1>Customer Self-Care</h1>
+          <p>PPPoE Session: <strong id="pppoe-user">subscriber_0192</strong></p>
+        </div>
+      </div>
+      <div class="badge-status">
+        <span class="badge-dot"></span>
+        <span id="session-status">ONLINE (45 Mbps)</span>
+      </div>
+    </header>
+
+    <!-- Usage & Bandwidth Grid -->
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="card-label">Monthly Data Consumed</div>
+        <div class="card-value" id="data-consumed">284.6 GB</div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 68%;"></div>
+        </div>
+        <div class="card-meta">Unlimited 45 Mbps Diamond Tier</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Account Validity</div>
+        <div class="card-value" id="days-remaining">18 Days</div>
+        <div class="card-meta" id="expiry-date">Expires: Nov 10, 2026 (23:59)</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Framed IP & BRAS</div>
+        <div class="card-value" style="font-size: 20px;" id="framed-ip">10.100.1.45</div>
+        <div class="card-meta">Mikrotik CCR2004 (Port 3799 PoD)</div>
+      </div>
+    </div>
+
+    <!-- Actions & Payment Extension -->
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-label">Extend Plan with bKash</div>
+        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 12px;">
+          Instant auto-unblock via HMAC-SHA256 MFS Webhook and RFC 3576 CoA disconnect under 3 seconds.
+        </p>
+        <button class="btn btn-bkash" onclick="triggerBkashPayment()">
+          <span>Pay ৳1,200 via bKash</span>
+        </button>
+        <button class="btn btn-secondary" onclick="simulateCoaKick()">
+          <span>Test RFC 3576 CoA Reconnect</span>
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Active RADIUS Session Info</div>
+        <div style="font-size: 13px; color: var(--text-muted); line-height: 1.8;">
+          <div>NAS-IP-Address: <code style="color: var(--accent);">10.10.10.1</code></div>
+          <div>Acct-Session-Id: <code style="color: var(--accent);">81c0004f-radius</code></div>
+          <div>Framed-Protocol: <code style="color: var(--accent);">PPP</code></div>
+          <div>Mikrotik-Rate-Limit: <code style="color: var(--accent);">45M/45M</code></div>
+          <div>Average RADIUS Latency: <code style="color: var(--success);">< 4.2ms</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast">
+    <span id="toast-icon">✅</span>
+    <span id="toast-msg">Notification</span>
+  </div>
+
+  <script>
+    // Seamless splash transition: fade out loader once DOM is ready
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
+        const app = document.getElementById('app');
+        if (splash) splash.classList.add('hidden');
+        if (app) app.classList.add('loaded');
+      }, 350);
+    });
+
+    function showToast(message, icon = '✅') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = document.getElementById('toast-icon');
+      toastMsg.textContent = message;
+      toastIcon.textContent = icon;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3200);
+    }
+
+    function triggerBkashPayment() {
+      showToast('Processing bKash Webhook & CoA Unblock...', '💳');
+      setTimeout(() => {
+        document.getElementById('days-remaining').textContent = '48 Days';
+        document.getElementById('expiry-date').textContent = 'Expires: Dec 10, 2026';
+        showToast('Plan extended by 30 days! Line speed restored (<2.8s SLA)', '⚡');
+      }, 1600);
+    }
+
+    function simulateCoaKick() {
+      showToast('Dispatching RFC 3576 UDP 3799 PoD...', '📡');
+      setTimeout(() => {
+        showToast('Disconnect-ACK received from Mikrotik CCR in 4.2ms!', '🎯');
+      }, 1200);
+    }
+
+    // Register PWA Service Worker if available
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
