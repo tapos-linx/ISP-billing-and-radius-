@@ -391,7 +391,7 @@ class IspArchitectViewModel : ViewModel() {
                 rateLimit = "10M/10M 15M/15M 5M/5M 10/10 8 5M/5M",
                 monthlyFee = 600.0,
                 expiryDate = "2026-10-12",
-                status = SubscriberStatus.WALLED_GARDEN,
+                status = SubscriberStatus.EXPIRED,
                 lastPaymentDate = "2026-09-12",
                 activeSessionId = "sess_78100e",
                 uptimeSeconds = 12400,

@@ -1,10 +1,9 @@
 package com.example.data.model
 
-enum class SubscriberStatus {
-    ACTIVE,
-    EXPIRED,
-    WALLED_GARDEN,
-    SUSPENDED
+enum class SubscriberStatus(val value: String) {
+    ACTIVE("active"),
+    EXPIRED("expired"),
+    SUSPENDED("suspended")
 }
 
 data class Subscriber(

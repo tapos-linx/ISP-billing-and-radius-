@@ -174,7 +174,6 @@ private fun SubscriberCard(subscriber: Subscriber, viewModel: IspArchitectViewMo
     val statusColor = when (subscriber.status) {
         SubscriberStatus.ACTIVE -> EmeraldSla
         SubscriberStatus.EXPIRED -> CoralDisconnect
-        SubscriberStatus.WALLED_GARDEN -> AmberBilling
         SubscriberStatus.SUSPENDED -> TextTertiaryDark
     }
 
