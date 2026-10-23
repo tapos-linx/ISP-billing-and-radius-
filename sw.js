@@ -1,5 +1,5 @@
 // ISP Billing PWA Service Worker for Instant Offline Launch & Splash Screen Cache
-const CACHE_NAME = 'isp-billing-v2';
+const CACHE_NAME = 'isp-carrier-platform-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
