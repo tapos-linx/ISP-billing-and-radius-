@@ -1,6 +1,6 @@
 {
-  "name": "ISP Billing",
-  "description": "Telecom BSS/OSS & Network Automation architect console for FreeRADIUS 3.x, Mikrotik RouterOS v7, PostgreSQL 16, RFC 3576 CoA/PoD, and Payment Webhooks by Tapos.",
+  "name": "ISP Billing (Carrier Edition)",
+  "description": "5M–10M Subscriber Carrier AAA/BSS platform with 128 Citus shards, Redis Fast-Path, ClickHouse Accounting, and TR-069 integration.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
