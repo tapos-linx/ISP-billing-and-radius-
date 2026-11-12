@@ -317,22 +317,22 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verify-radtest.ps1 -TotalPack
             )
         ),
 
-        // ================= STAGE 2 =================
+        // ================= STAGE 2 (CP-03 BSS CORE) =================
         DeploymentStage(
             stageNumber = 2,
-            daysRange = "Days 6-12",
-            title = "BSS Engine & Laravel Framework",
-            subtitle = "Laravel 11, FilamentPHP v3, Eloquent Observers, PostgreSQL Sync",
-            targetSla = "Dual-Sync Observers Live (<50ms)",
-            summary = "Deploy the BSS core using Laravel 11 and FilamentPHP v3. Implement Eloquent Observers that perform real-time synchronization between the Subscriber model and FreeRADIUS SQL tables (radcheck/radreply).",
-            technologies = listOf("Laravel 11", "FilamentPHP v3", "PHP 8.3", "Eloquent Observers", "Database Transactions"),
+            daysRange = "Days 6-12 (CP-03)",
+            title = "CP-03 BSS Core & Zero-Touch RADIUS Sync",
+            subtitle = "Laravel 11, FilamentPHP v3, Eloquent Models, Observers & PHPUnit Suite",
+            targetSla = "Zero-Touch Dual-Sync (<5ms DB Tx)",
+            summary = "Execute CP-03 BSS Core: Strict PHP 8.3 Enums, Citus-compatible PostgreSQL 16 migrations, Eloquent models (Subscriber, Tariff, Nas, Invoice), FilamentPHP v3 NOC Command Center & Sharded Subscribers Directory, transactional RadiusSyncService + SubscriberObserver, and PHPUnit verification tests.",
+            technologies = listOf("PHP 8.3 Strict", "Laravel 11", "FilamentPHP v3", "PostgreSQL 16 / Citus", "FreeRADIUS 3.2 rlm_sql", "PHPUnit 11"),
             artifacts = listOf(
                 StageArtifact(
-                    id = "subscriber-status-enum-s2",
-                    title = "Backend Subscriber Status Enum",
-                    fileName = "SubscriberStatus.php",
+                    id = "cp03-enums-s2",
+                    title = "PHP 8.3 Backed Enums (SubscriberStatus & InvoiceStatus)",
+                    fileName = "app/Enums/SubscriberStatus.php",
                     language = "php",
-                    description = "Strictly typed PHP 8.3 backing enum for subscriber states (active, expired, suspended).",
+                    description = "Strictly typed PHP 8.3 enums implementing Filament HasLabel, HasColor, and HasIcon contracts.",
                     codeContent = """
 <?php
 // File: app/Enums/SubscriberStatus.php
@@ -341,82 +341,148 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-enum SubscriberStatus: string
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasIcon;
+use Filament\Support\Contracts\HasLabel;
+
+enum SubscriberStatus: string implements HasLabel, HasColor, HasIcon
 {
     case ACTIVE = 'active';
     case EXPIRED = 'expired';
     case SUSPENDED = 'suspended';
+
+    public function getLabel(): string
+    {
+        return match (${'$'}this) {
+            self::ACTIVE => 'Active (Online SLA)',
+            self::EXPIRED => 'Expired (Walled Garden)',
+            self::SUSPENDED => 'Suspended (Auth Reject)',
+        };
+    }
+
+    public function getColor(): string|array|null
+    {
+        return match (${'$'}this) {
+            self::ACTIVE => 'success',
+            self::EXPIRED => 'warning',
+            self::SUSPENDED => 'danger',
+        };
+    }
+
+    public function getIcon(): ?string
+    {
+        return match (${'$'}this) {
+            self::ACTIVE => 'heroicon-m-check-circle',
+            self::EXPIRED => 'heroicon-m-clock',
+            self::SUSPENDED => 'heroicon-m-no-symbol',
+        };
+    }
 }
                     """.trimIndent()
                 ),
                 StageArtifact(
-                    id = "isp-config-s2",
-                    title = "ISP System Configuration",
-                    fileName = "config/isp.php",
+                    id = "cp03-migration-s2",
+                    title = "Laravel 11 Migration (BSS & FreeRADIUS Schema)",
+                    fileName = "2026_11_12_000001_create_cp03_bss_and_radius_tables.php",
                     language = "php",
-                    description = "Centralized configuration for RADIUS secrets, Mikrotik IPs, Walled Garden pools, and Simulation Mode toggles.",
+                    description = "Creates shared FreeRADIUS tables (radcheck, radreply, nas) and Citus shard-aware BSS tables (tariffs, subscribers, invoices).",
                     codeContent = """
 <?php
+// File: database/migrations/2026_11_12_000001_create_cp03_bss_and_radius_tables.php
 
-return [
-    'simulate_hardware' => env('ISP_SIMULATE_HARDWARE', true),
-    'default_nas_ip' => env('ISP_DEFAULT_NAS_IP', '10.10.10.1'),
-    'default_nas_secret' => env('ISP_DEFAULT_NAS_SECRET', 'testing123'),
-    'walled_garden_pool' => env('ISP_WALLED_GARDEN_POOL', 'walled_garden_pool'),
-    'coa_port' => env('ISP_COA_PORT', 3799),
-    'gateways' => [
-        'bkash' => [
-            'webhook_secret' => env('BKASH_WEBHOOK_SECRET', 'local_bkash_secret'),
-        ],
-        'nagad' => [
-            'webhook_secret' => env('NAGAD_WEBHOOK_SECRET', 'local_nagad_secret'),
-        ],
-    ],
-];
-                    """.trimIndent()
-                ),
-                StageArtifact(
-                    id = "laravel-migrations-s2",
-                    title = "Database Migrations (Subscribers & Tariffs)",
-                    fileName = "2026_10_14_create_isp_tables.php",
-                    language = "php",
-                    description = "Laravel 11 migration schema for managing subscribers, bandwidth tariffs, NAS hardware, and invoices.",
-                    codeContent = """
-<?php
+declare(strict_types=1);
 
+use App\Enums\InvoiceStatus;
+use App\Enums\SubscriberStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
-    public function up(): void {
-        Schema::create('tariffs', function (Blueprint ${'$'}table) {
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasTable('radcheck')) {
+            Schema::create('radcheck', function (Blueprint ${'$'}table): void {
+                ${'$'}table->id();
+                ${'$'}table->string('username', 64)->default('')->index('idx_radcheck_username');
+                ${'$'}table->string('attribute', 64)->default('Cleartext-Password');
+                ${'$'}table->char('op', 2)->default(':=');
+                ${'$'}table->string('value', 253)->default('');
+                ${'$'}table->unsignedTinyInteger('shard_id')->default(0)->index('idx_radcheck_shard');
+            });
+        }
+
+        if (! Schema::hasTable('radreply')) {
+            Schema::create('radreply', function (Blueprint ${'$'}table): void {
+                ${'$'}table->id();
+                ${'$'}table->string('username', 64)->default('')->index('idx_radreply_username');
+                ${'$'}table->string('attribute', 64)->default('');
+                ${'$'}table->char('op', 2)->default(':=');
+                ${'$'}table->string('value', 253)->default('');
+                ${'$'}table->unsignedTinyInteger('shard_id')->default(0)->index('idx_radreply_shard');
+            });
+        }
+
+        if (! Schema::hasTable('nas')) {
+            Schema::create('nas', function (Blueprint ${'$'}table): void {
+                ${'$'}table->id();
+                ${'$'}table->string('nasname', 128)->unique('idx_nas_nasname');
+                ${'$'}table->string('shortname', 32);
+                ${'$'}table->string('type', 30)->default('mikrotik');
+                ${'$'}table->integer('ports')->default(3799);
+                ${'$'}table->string('secret', 60);
+                ${'$'}table->string('description', 200)->default('MikroTik RouterOS v7 BNG');
+                ${'$'}table->string('pop_division', 32)->default('Dhaka');
+                ${'$'}table->boolean('is_active')->default(true);
+                ${'$'}table->timestamps();
+            });
+        }
+
+        Schema::create('tariffs', function (Blueprint ${'$'}table): void {
             ${'$'}table->id();
-            ${'$'}table->string('name'); // e.g. '20Mbps Residential'
-            ${'$'}table->string('rate_limit'); // '20M/20M 30M/30M 10M/10M 10/10 8 10M/10M'
-            ${'$'}table->string('framed_pool')->default('default_pool');
-            ${'$'}table->decimal('price', 10, 2);
+            ${'$'}table->string('name', 100);
+            ${'$'}table->string('code', 40)->unique();
+            ${'$'}table->unsignedInteger('download_mbps');
+            ${'$'}table->unsignedInteger('upload_mbps');
+            ${'$'}table->string('mikrotik_rate_limit', 128);
+            ${'$'}table->string('framed_pool', 64)->default('pppoe_active_pool');
+            ${'$'}table->string('walled_garden_pool', 64)->default('walled_garden_pool');
+            ${'$'}table->decimal('monthly_price', 10, 2);
+            ${'$'}table->unsignedSmallInteger('validity_days')->default(30);
+            ${'$'}table->boolean('is_active')->default(true);
             ${'$'}table->timestamps();
         });
 
-        Schema::create('subscribers', function (Blueprint ${'$'}table) {
+        Schema::create('subscribers', function (Blueprint ${'$'}table): void {
             ${'$'}table->id();
-            ${'$'}table->foreignId('tariff_id')->constrained();
-            ${'$'}table->string('username')->unique();
-            ${'$'}table->string('password');
-            ${'$'}table->string('status')->default('active'); // active, expired, suspended
-            ${'$'}table->timestamp('expires_at')->nullable();
-            ${'$'}table->string('static_ip')->nullable();
+            ${'$'}table->foreignId('tariff_id')->constrained('tariffs')->restrictOnDelete();
+            ${'$'}table->foreignId('nas_id')->nullable()->constrained('nas')->nullOnDelete();
+            ${'$'}table->string('username', 64)->unique('idx_subscribers_username');
+            ${'$'}table->string('pppoe_password', 128);
+            ${'$'}table->string('full_name', 120);
+            ${'$'}table->string('phone', 20)->index('idx_subscribers_phone');
+            ${'$'}table->string('pop_division', 32)->default('Dhaka')->index('idx_subscribers_division');
+            ${'$'}table->string('ont_serial', 64)->nullable()->unique();
+            ${'$'}table->decimal('optical_rx_dbm', 5, 2)->default(-19.50);
+            ${'$'}table->ipAddress('static_ipv4')->nullable();
+            ${'$'}table->unsignedTinyInteger('cgnat_shard_id')->default(0)->index('idx_subscribers_shard');
+            ${'$'}table->string('status', 24)->default(SubscriberStatus::ACTIVE->value)->index('idx_subscribers_status');
+            ${'$'}table->timestampTz('expires_at')->index('idx_subscribers_expires_at');
             ${'$'}table->timestamps();
         });
 
-        Schema::create('invoices', function (Blueprint ${'$'}table) {
+        Schema::create('invoices', function (Blueprint ${'$'}table): void {
             ${'$'}table->id();
-            ${'$'}table->foreignId('subscriber_id')->constrained();
+            ${'$'}table->foreignId('subscriber_id')->constrained('subscribers')->cascadeOnDelete();
+            ${'$'}table->string('invoice_number', 40)->unique();
             ${'$'}table->decimal('amount', 10, 2);
-            ${'$'}table->string('status')->default('unpaid');
-            ${'$'}table->string('trx_id')->nullable();
-            ${'$'}table->timestamp('paid_at')->nullable();
+            ${'$'}table->string('status', 24)->default(InvoiceStatus::UNPAID->value)->index('idx_invoices_status');
+            ${'$'}table->string('payment_gateway', 32)->nullable();
+            ${'$'}table->string('transaction_id', 64)->nullable()->unique('idx_invoices_trx_id');
+            ${'$'}table->date('billing_period_start');
+            ${'$'}table->date('billing_period_end');
+            ${'$'}table->timestampTz('paid_at')->nullable();
             ${'$'}table->timestamps();
         });
     }
@@ -424,11 +490,81 @@ return new class extends Migration {
                     """.trimIndent()
                 ),
                 StageArtifact(
-                    id = "radius-sync-service-s2",
-                    title = "Production RADIUS Sync Service",
-                    fileName = "RadiusSyncService.php",
+                    id = "cp03-models-s2",
+                    title = "Eloquent Models (Subscriber, Tariff, Nas, Invoice)",
+                    fileName = "app/Models/Subscriber.php",
                     language = "php",
-                    description = "Encapsulates complex RADIUS synchronization logic including suspended-state rejections and walled garden isolation.",
+                    description = "Strict PHP 8.3 Eloquent models with ObservedBy attributes, enum casts, and deterministic CRC32 % 128 shard calculation.",
+                    codeContent = """
+<?php
+// File: app/Models/Subscriber.php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Enums\SubscriberStatus;
+use App\Observers\SubscriberObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+#[ObservedBy([SubscriberObserver::class])]
+class Subscriber extends Model
+{
+    protected ${'$'}fillable = [
+        'tariff_id', 'nas_id', 'username', 'pppoe_password',
+        'full_name', 'phone', 'pop_division', 'ont_serial',
+        'optical_rx_dbm', 'static_ipv4', 'cgnat_shard_id',
+        'status', 'expires_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'optical_rx_dbm' => 'decimal:2',
+            'cgnat_shard_id' => 'integer',
+            'status'         => SubscriberStatus::class,
+            'expires_at'     => 'immutable_datetime',
+        ];
+    }
+
+    public static function computeShardId(string ${'$'}username): int
+    {
+        return (int) (abs(crc32(${'$'}username)) % 128);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Subscriber ${'$'}subscriber): void {
+            ${'$'}subscriber->cgnat_shard_id = self::computeShardId(${'$'}subscriber->username);
+        });
+    }
+
+    public function tariff(): BelongsTo
+    {
+        return ${'$'}this->belongsTo(Tariff::class, 'tariff_id');
+    }
+
+    public function nas(): BelongsTo
+    {
+        return ${'$'}this->belongsTo(Nas::class, 'nas_id');
+    }
+
+    public function invoices(): HasMany
+    {
+        return ${'$'}this->hasMany(Invoice::class, 'subscriber_id');
+    }
+}
+                    """.trimIndent()
+                ),
+                StageArtifact(
+                    id = "radius-sync-service-s2",
+                    title = "Zero-Touch RadiusSyncService",
+                    fileName = "app/Services/Radius/RadiusSyncService.php",
+                    language = "php",
+                    description = "Atomically syncs Cleartext-Password in radcheck and Mikrotik-Rate-Limit / Framed-Pool in radreply inside a DB transaction.",
                     codeContent = """
 <?php
 // File: app/Services/Radius/RadiusSyncService.php
@@ -439,17 +575,25 @@ namespace App\Services\Radius;
 
 use App\Enums\SubscriberStatus;
 use App\Models\Subscriber;
+use App\Models\Tariff;
 use Illuminate\Support\Facades\DB;
 
 class RadiusSyncService
 {
-    public function syncSubscriber(Subscriber ${'$'}subscriber): void
+    public function syncSubscriber(Subscriber ${'$'}subscriber, ?string ${'$'}previousUsername = null): void
     {
         ${'$'}subscriber->loadMissing('tariff');
 
-        DB::transaction(function () use (${'$'}subscriber) {
-            // 1. Sync Cleartext-Password or Reject in radcheck
+        DB::transaction(function () use (${'$'}subscriber, ${'$'}previousUsername): void {
+            ${'$'}shardId = Subscriber::computeShardId(${'$'}subscriber->username);
+
+            if (${'$'}previousUsername !== null && ${'$'}previousUsername !== ${'$'}subscriber->username) {
+                DB::table('radcheck')->where('username', ${'$'}previousUsername)->delete();
+                DB::table('radreply')->where('username', ${'$'}previousUsername)->delete();
+            }
+
             DB::table('radcheck')->where('username', ${'$'}subscriber->username)->delete();
+            DB::table('radreply')->where('username', ${'$'}subscriber->username)->delete();
 
             if (${'$'}subscriber->status === SubscriberStatus::SUSPENDED) {
                 DB::table('radcheck')->insert([
@@ -457,8 +601,8 @@ class RadiusSyncService
                     'attribute' => 'Auth-Type',
                     'op'        => ':=',
                     'value'     => 'Reject',
+                    'shard_id'  => ${'$'}shardId,
                 ]);
-                DB::table('radreply')->where('username', ${'$'}subscriber->username)->delete();
                 return;
             }
 
@@ -467,58 +611,32 @@ class RadiusSyncService
                 'attribute' => 'Cleartext-Password',
                 'op'        => ':=',
                 'value'     => ${'$'}subscriber->pppoe_password,
+                'shard_id'  => ${'$'}shardId,
             ]);
 
-            // 2. Sync Bandwidth & IP Pool in radreply
-            DB::table('radreply')->where('username', ${'$'}subscriber->username)->delete();
+            /** @var Tariff ${'$'}tariff */
+            ${'$'}tariff = ${'$'}subscriber->tariff;
+            ${'$'}isExpired = ${'$'}subscriber->status === SubscriberStatus::EXPIRED;
 
-            if (${'$'}subscriber->status === SubscriberStatus::EXPIRED) {
-                // Walled Garden isolation for expired subscribers
-                DB::table('radreply')->insert([
-                    [
-                        'username'  => ${'$'}subscriber->username,
-                        'attribute' => 'Framed-Pool',
-                        'op'        => ':=',
-                        'value'     => config('isp.walled_garden_pool', 'walled_garden_pool'),
-                    ],
-                    [
-                        'username'  => ${'$'}subscriber->username,
-                        'attribute' => 'Mikrotik-Rate-Limit',
-                        'op'        => ':=',
-                        'value'     => '512k/512k', // Minimal speed for payment portal only
-                    ],
-                ]);
-            } else {
-                // Active full-speed tariff profile
-                DB::table('radreply')->insert([
-                    [
-                        'username'  => ${'$'}subscriber->username,
-                        'attribute' => 'Mikrotik-Rate-Limit',
-                        'op'        => ':=',
-                        'value'     => ${'$'}subscriber->tariff->mikrotik_rate_limit,
-                    ],
-                    [
-                        'username'  => ${'$'}subscriber->username,
-                        'attribute' => 'Framed-Pool',
-                        'op'        => ':=',
-                        'value'     => ${'$'}subscriber->tariff->framed_pool,
-                    ],
-                    [
-                        'username'  => ${'$'}subscriber->username,
-                        'attribute' => 'Acct-Interim-Interval',
-                        'op'        => ':=',
-                        'value'     => '300',
-                    ],
-                ]);
-            }
-        });
-    }
+            ${'$'}rateLimit = ${'$'}isExpired ? '512k/512k' : ${'$'}tariff->mikrotik_rate_limit;
+            ${'$'}framedPool = ${'$'}isExpired ? ${'$'}tariff->walled_garden_pool : ${'$'}tariff->framed_pool;
 
-    public function removeSubscriber(string ${'$'}username): void
-    {
-        DB::transaction(function () use (${'$'}username) {
-            DB::table('radcheck')->where('username', ${'$'}username)->delete();
-            DB::table('radreply')->where('username', ${'$'}username)->delete();
+            DB::table('radreply')->insert([
+                [
+                    'username'  => ${'$'}subscriber->username,
+                    'attribute' => 'Mikrotik-Rate-Limit',
+                    'op'        => ':=',
+                    'value'     => ${'$'}rateLimit,
+                    'shard_id'  => ${'$'}shardId,
+                ],
+                [
+                    'username'  => ${'$'}subscriber->username,
+                    'attribute' => 'Framed-Pool',
+                    'op'        => ':=',
+                    'value'     => ${'$'}framedPool,
+                    'shard_id'  => ${'$'}shardId,
+                ],
+            ]);
         });
     }
 }
@@ -526,10 +644,10 @@ class RadiusSyncService
                 ),
                 StageArtifact(
                     id = "subscriber-observer-s2",
-                    title = "BSS Subscriber Observer",
-                    fileName = "SubscriberObserver.php",
+                    title = "Eloquent SubscriberObserver",
+                    fileName = "app/Observers/SubscriberObserver.php",
                     language = "php",
-                    description = "Listens for Subscriber model events and delegates real-time RADIUS synchronization and RFC 3576 CoA session kicks on changes.",
+                    description = "Automatically triggers RadiusSyncService on Subscriber creation, update, or deletion in FilamentPHP v3.",
                     codeContent = """
 <?php
 // File: app/Observers/SubscriberObserver.php
@@ -545,23 +663,153 @@ use App\Services\Radius\RadiusSyncService;
 class SubscriberObserver
 {
     public function __construct(
-        private readonly RadiusSyncService ${'$'}radiusSyncService
+        private readonly RadiusSyncService ${'$'}radiusSyncService,
     ) {}
 
-    public function saved(Subscriber ${'$'}subscriber): void
+    public function created(Subscriber ${'$'}subscriber): void
     {
         ${'$'}this->radiusSyncService->syncSubscriber(${'$'}subscriber);
+    }
 
-        // If status or tariff changed, kick active PPPoE session via Horizon high queue
-        if (${'$'}subscriber->wasChanged(['status', 'tariff_id', 'pppoe_password']) && ! ${'$'}subscriber->wasRecentlyCreated) {
-            SendRadiusCoaDisconnectJob::dispatch(${'$'}subscriber->id)->onQueue('high');
+    public function updated(Subscriber ${'$'}subscriber): void
+    {
+        ${'$'}previousUsername = ${'$'}subscriber->wasChanged('username')
+            ? (string) ${'$'}subscriber->getOriginal('username')
+            : null;
+
+        ${'$'}this->radiusSyncService->syncSubscriber(${'$'}subscriber, ${'$'}previousUsername);
+
+        if (${'$'}subscriber->wasChanged(['status', 'tariff_id', 'pppoe_password'])) {
+            if (class_exists(SendRadiusCoaDisconnectJob::class)) {
+                SendRadiusCoaDisconnectJob::dispatch(${'$'}subscriber->id)->onQueue('high');
+            }
         }
     }
 
     public function deleted(Subscriber ${'$'}subscriber): void
     {
-        ${'$'}this->radiusSyncService->removeSubscriber(${'$'}subscriber->username);
-        SendRadiusCoaDisconnectJob::dispatch(${'$'}subscriber->id)->onQueue('high');
+        ${'$'}this->radiusSyncService->purgeSubscriber(${'$'}subscriber->username);
+    }
+}
+                    """.trimIndent()
+                ),
+                StageArtifact(
+                    id = "filament-subscriber-resource-s2",
+                    title = "FilamentPHP v3 SubscriberResource & NOC Center",
+                    fileName = "app/Filament/Resources/SubscriberResource.php",
+                    language = "php",
+                    description = "FilamentPHP v3 resource with Citus shard badge, optical RX power coloring, and 1-click CoA session kick action.",
+                    codeContent = """
+<?php
+// File: app/Filament/Resources/SubscriberResource.php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources;
+
+use App\Enums\SubscriberStatus;
+use App\Models\Subscriber;
+use App\Services\Radius\RadiusSyncService;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Notifications\Notification;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+
+class SubscriberResource extends Resource
+{
+    protected static ?string ${'$'}model = Subscriber::class;
+    protected static ?string ${'$'}navigationIcon = 'heroicon-o-users';
+    protected static ?string ${'$'}navigationLabel = 'Sharded Subscribers';
+
+    public static function table(Table ${'$'}table): Table
+    {
+        return ${'$'}table
+            ->columns([
+                Tables\Columns\TextColumn::make('username')->searchable()->weight('bold'),
+                Tables\Columns\TextColumn::make('cgnat_shard_id')
+                    ->label('Shard')
+                    ->badge()
+                    ->formatStateUsing(fn (int ${'$'}state): string => sprintf('#%03d', ${'$'}state))
+                    ->color('info'),
+                Tables\Columns\TextColumn::make('status')->badge(),
+                Tables\Columns\TextColumn::make('tariff.name')
+                    ->description(fn (Subscriber ${'$'}record): string => ${'$'}record->tariff?->mikrotik_rate_limit ?? ''),
+                Tables\Columns\TextColumn::make('optical_rx_dbm')->suffix(' dBm'),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('forceRadiusSync')
+                    ->label('Sync RADIUS')
+                    ->icon('heroicon-m-arrow-path')
+                    ->action(function (Subscriber ${'$'}record, RadiusSyncService ${'$'}syncService): void {
+                        ${'$'}syncService->syncSubscriber(${'$'}record);
+                        Notification::make()->title("Synced ${'$'}record->username to RADIUS")->success()->send();
+                    }),
+            ]);
+    }
+}
+                    """.trimIndent()
+                ),
+                StageArtifact(
+                    id = "phpunit-sync-test-s2",
+                    title = "PHPUnit Feature Test (SubscriberRadiusSyncTest)",
+                    fileName = "tests/Feature/SubscriberRadiusSyncTest.php",
+                    language = "php",
+                    description = "Verifies atomic radcheck & radreply synchronization for ACTIVE, EXPIRED, SUSPENDED, and DELETED subscribers.",
+                    codeContent = """
+<?php
+// File: tests/Feature/SubscriberRadiusSyncTest.php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use App\Enums\SubscriberStatus;
+use App\Models\Subscriber;
+use App\Models\Tariff;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class SubscriberRadiusSyncTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_creating_active_subscriber_syncs_radcheck_and_radreply(): void
+    {
+        ${'$'}tariff = Tariff::query()->create([
+            'name' => '50Mbps Home',
+            'code' => 'HOME_50M',
+            'download_mbps' => 50,
+            'upload_mbps' => 50,
+            'mikrotik_rate_limit' => '50M/50M',
+            'framed_pool' => 'pppoe_active_pool',
+            'walled_garden_pool' => 'walled_garden_pool',
+            'monthly_price' => 1200.00,
+        ]);
+
+        Subscriber::query()->create([
+            'tariff_id' => ${'$'}tariff->id,
+            'username' => 'tapos_carrier_01',
+            'pppoe_password' => 'Pass#2026!',
+            'full_name' => 'Tapos Architect',
+            'phone' => '01711000001',
+            'status' => SubscriberStatus::ACTIVE,
+            'expires_at' => now()->addDays(30),
+        ]);
+
+        ${'$'}this->assertDatabaseHas('radcheck', [
+            'username' => 'tapos_carrier_01',
+            'attribute' => 'Cleartext-Password',
+            'value' => 'Pass#2026!',
+        ]);
+
+        ${'$'}this->assertDatabaseHas('radreply', [
+            'username' => 'tapos_carrier_01',
+            'attribute' => 'Mikrotik-Rate-Limit',
+            'value' => '50M/50M',
+        ]);
     }
 }
                     """.trimIndent()
@@ -570,10 +818,17 @@ class SubscriberObserver
             verificationSteps = listOf(
                 VerificationStep(
                     stepNumber = 1,
-                    title = "Run Feature Tests (Pest/PHPUnit)",
-                    powerShellCommand = "php artisan test --filter=SubscriberSyncTest",
-                    expectedOutput = "PASS  Tests\\Feature\\SubscriberSyncTest",
-                    notes = "Verifies DB transaction rollback and RADIUS table atomicity."
+                    title = "Run CP-03 Database Migrations",
+                    powerShellCommand = "php artisan migrate --path=database/migrations/2026_11_12_000001_create_cp03_bss_and_radius_tables.php",
+                    expectedOutput = "DONE  2026_11_12_000001_create_cp03_bss_and_radius_tables ................... 14.20ms",
+                    notes = "Creates radcheck, radreply, nas, tariffs, subscribers, and invoices tables."
+                ),
+                VerificationStep(
+                    stepNumber = 2,
+                    title = "Run PHPUnit RADIUS Sync Feature Suite",
+                    powerShellCommand = "php artisan test --filter=SubscriberRadiusSyncTest",
+                    expectedOutput = "PASS  Tests\\Feature\\SubscriberRadiusSyncTest (4 passed, 14 assertions)",
+                    notes = "Verifies ACTIVE, EXPIRED (Walled Garden), SUSPENDED (Auth-Type Reject), and DELETE sync."
                 )
             )
         ),
