@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>ISP Billing (Carrier Edition) | Principal Architect Console</title>
+
+  <!-- PWA & Splash Metadata -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0B132B">
+  <meta name="background-color" content="#0B132B">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Tailwind CSS CDN with Custom Config -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            deepSpace: '#0B132B',
+            navyBlue: '#1C2541',
+            cyanPulse: '#48CAE4',
+            emeraldSLA: '#06D6A0',
+            amberWarning: '#FFD166',
+            crimsonAlert: '#EF476F',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- React 19 & Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/react@19.0.0-rc.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@19.0.0-rc.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.0/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.0/umd/Recharts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/clsx@2.1.0/dist/clsx.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tailwind-merge@2.2.1/dist/bundle-client.umd.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: #0B132B;
+      color: #F8FAFC;
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #0B132B; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #1C2541; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #48CAE4; }
+
+    #splash-screen {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background-color: #0B132B; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 99999;
+      transition: opacity 0.5s ease;
+    }
+    .loader {
+      width: 48px; height: 48px; border: 5px solid #1C2541;
+      border-bottom-color: #48CAE4; border-radius: 50%;
+      display: inline-block; animation: rotation 1s linear infinite;
+    }
+    @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-deepSpace text-slate-100 selection:bg-cyanPulse/30 selection:text-cyanPulse">
+
+  <div id="splash-screen">
+    <div class="loader mb-4"></div>
+    <h1 class="text-xl font-bold tracking-tighter text-[#48CAE4]">ISP BILLING: CARRIER EDITION</h1>
+    <p class="text-xs font-mono text-slate-500 mt-2">Initializing 128 Citus Shards...</p>
+  </div>
+
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react,typescript">
+    const { useState, useEffect, useMemo, useRef } = React;
+    const { 
+      LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+      Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie 
+    } = Recharts;
+
+    // --- Utilities ---
+    const crc32 = (str: string) => {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    };
+
+    const getShardId = (id: string) => crc32(id) % 128;
+
+    const formatIP = (num: number) => {
+      return `103.112.40.${num % 255}`;
+    };
+
+    // --- Mock Data Generators ---
+    const GENERATE_SHARDS = () => Array.from({ length: 128 }, (_, i) => ({
+      id: i,
+      health: Math.random() > 0.05 ? 'healthy' : 'degraded',
+      latency: Math.floor(Math.random() * 5) + 0.1,
+      load: Math.floor(Math.random() * 40) + 20
+    }));
+
+    const GENERATE_SUBSCRIBERS = (count: number) => {
+      const statuses = ['ACTIVE', 'EXPIRED', 'DISABLED'];
+      const divisions = ['Dhaka', 'Chittagong', 'Rajshahi', 'Khulna', 'Sylhet', 'Barisal', 'Rangpur', 'Mymensingh'];
+      return Array.from({ length: count }, (_, i) => {
+        const id = `sub-${1000000 + i}`;
+        return {
+          id,
+          username: `user_${1000000 + i}`,
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          division: divisions[Math.floor(Math.random() * divisions.length)],
+          shard: getShardId(id),
+          ip: formatIP(i),
+          ont: `HW-${Math.random().toString(36).substring(7).toUpperCase()}`,
+          signal: (Math.random() * -10 - 15).toFixed(1)
+        };
+      });
+    };
+
+    // --- Components ---
+
+    const Icon = ({ name, className = "w-4 h-4" }: { name: string, className?: string }) => {
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      }, [name]);
+      return <i data-lucide={name} className={className}></i>;
+    };
+
+    const Badge = ({ children, variant = 'default' }: { children: any, variant?: string }) => {
+      const classes = {
+        default: 'bg-navyBlue text-slate-400 border-slate-700',
+        success: 'bg-emeraldSLA/10 text-emeraldSLA border-emeraldSLA/30',
+        warning: 'bg-amberWarning/10 text-amberWarning border-amberWarning/30',
+        danger: 'bg-crimsonAlert/10 text-crimsonAlert border-crimsonAlert/30',
+        primary: 'bg-cyanPulse/10 text-cyanPulse border-cyanPulse/30',
+      };
+      return (
+        <span className={`px-2 py-0.5 rounded text-[10px] font-mono border font-bold ${classes[variant as keyof typeof classes]}`}>
+          {children}
+        </span>
+      );
+    };
+
+    // --- Module 1: NOC Command Center ---
+    const NOCDashboard = () => {
+      const shards = useMemo(GENERATE_SHARDS, []);
+      const [stormActive, setStormActive] = useState(false);
+      const [stormLogs, setStormLogs] = useState<{ t: string, m: string }[]>([]);
+
+      const startStorm = () => {
+        setStormActive(true);
+        setStormLogs(prev => [{ t: new Date().toLocaleTimeString(), m: 'Storm Initiated: 500k re-auth requests/sec' }, ...prev]);
+        setTimeout(() => {
+          setStormLogs(prev => [{ t: new Date().toLocaleTimeString(), m: 'Redis Fast-Path SLA: 0.38ms average lookup' }, ...prev]);
+          setStormActive(false);
+        }, 3000);
+      };
+
+      return (
+        <div className="grid grid-cols-12 gap-4 h-full">
+          {/* Main Telemetry */}
+          <div className="col-span-8 flex flex-col gap-4">
+            <div className="grid grid-cols-4 gap-4">
+              {[
+                { label: 'Active Sessions', val: '8,241,092', sub: '+12k/hr', color: '#48CAE4' },
+                { label: 'Cluster Throughput', val: '450 Gbps', sub: '92% Capacity', color: '#06D6A0' },
+                { label: 'AAA Latency', val: '0.38 ms', sub: 'Redis L1 Cache', color: '#FFD166' },
+                { label: 'LOS Alarms', val: '42', sub: 'Critical (PON)', color: '#EF476F' },
+              ].map(stat => (
+                <div key={stat.label} className="bg-navyBlue border border-white/5 p-4 rounded-xl relative overflow-hidden group">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1">{stat.label}</div>
+                  <div className="text-2xl font-bold tracking-tighter" style={{ color: stat.color }}>{stat.val}</div>
+                  <div className="text-[10px] text-slate-500 mt-1 font-mono">{stat.sub}</div>
+                  <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-100 transition-opacity">
+                    <Icon name="activity" className="w-8 h-8" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-navyBlue border border-white/5 rounded-xl p-4 flex-1 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <Icon name="grid" className="text-cyanPulse" />
+                  128-Shard Citus Cluster Health Grid
+                </h3>
+                <Badge variant="success">All Nodes Active</Badge>
+              </div>
+              <div className="grid grid-cols-16 gap-1 flex-1 overflow-auto custom-scrollbar p-1 bg-deepSpace/50 rounded-lg">
+                {shards.map(shard => (
+                  <div 
+                    key={shard.id}
+                    title={`Shard #${shard.id.toString().padStart(3, '0')}: ${shard.latency}ms / ${shard.load}%`}
+                    className={`aspect-square rounded-[2px] transition-colors cursor-help ${
+                      shard.health === 'healthy' ? 'bg-emeraldSLA/40 hover:bg-emeraldSLA' : 'bg-crimsonAlert animate-pulse'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Side Panel */}
+          <div className="col-span-4 flex flex-col gap-4">
+            <div className="bg-navyBlue border border-white/5 rounded-xl p-4 h-1/2 flex flex-col">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Network Load Distribution</h3>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={[
+                  { time: '00:00', load: 30 }, { time: '04:00', load: 15 }, { time: '08:00', load: 60 },
+                  { time: '12:00', load: 85 }, { time: '16:00', load: 70 }, { time: '20:00', load: 95 },
+                ]}>
+                  <defs>
+                    <linearGradient id="colorLoad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#48CAE4" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#48CAE4" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1C2541" />
+                  <XAxis dataKey="time" stroke="#475569" fontSize={10} />
+                  <YAxis stroke="#475569" fontSize={10} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1C2541', borderColor: '#48CAE4', fontSize: '10px' }} />
+                  <Area type="monotone" dataKey="load" stroke="#48CAE4" fillOpacity={1} fill="url(#colorLoad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-navyBlue border border-white/5 rounded-xl p-4 flex-1 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Storm Simulator</h3>
+                <button 
+                  onClick={startStorm}
+                  disabled={stormActive}
+                  className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition ${
+                    stormActive ? 'bg-slate-700 text-slate-500' : 'bg-cyanPulse text-deepSpace hover:bg-white'
+                  }`}
+                >
+                  Run 500k Storm
+                </button>
+              </div>
+              <div className="flex-1 bg-deepSpace rounded-lg p-2 font-mono text-[10px] overflow-auto custom-scrollbar">
+                {stormLogs.length === 0 && <div className="text-slate-700 italic">Ready for simulation...</div>}
+                {stormLogs.map((log, i) => (
+                  <div key={i} className="mb-1">
+                    <span className="text-slate-500">[{log.t}]</span> <span className="text-cyanPulse">{log.m}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Module 2: Sharded Subscribers ---
+    const ShardedSubscribers = () => {
+      const [search, setSearch] = useState('');
+      const subs = useMemo(() => GENERATE_SUBSCRIBERS(20), []);
+      const [activeSub, setActiveSub] = useState<any>(null);
+
+      const filtered = subs.filter(s => s.username.includes(search));
+
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between mb-4 bg-navyBlue border border-white/5 p-4 rounded-xl">
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                <Icon name="users" className="text-cyanPulse" />
+                Subscriber Management
+              </h2>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="Search 10M Global Citus Shards..." 
+                  className="bg-deepSpace border border-slate-700 rounded-lg px-8 py-2 text-xs w-80 focus:border-cyanPulse focus:outline-none transition-all"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+                <Icon name="search" className="absolute left-2.5 top-2.5 text-slate-500 w-3 h-3" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="primary">Total: 8,241,092</Badge>
+              <Badge variant="success">Online: 7,921,440</Badge>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
+            <div className="col-span-8 bg-navyBlue border border-white/5 rounded-xl overflow-hidden flex flex-col">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-deepSpace text-slate-500 font-mono border-b border-white/5 uppercase tracking-tighter">
+                  <tr>
+                    <th className="p-3">Subscriber</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Shard</th>
+                    <th className="p-3">Division</th>
+                    <th className="p-3">Public IP</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 custom-scrollbar overflow-auto">
+                  {filtered.map(s => (
+                    <tr 
+                      key={s.id} 
+                      className={`hover:bg-cyanPulse/5 cursor-pointer transition-colors ${activeSub?.id === s.id ? 'bg-cyanPulse/10' : ''}`}
+                      onClick={() => setActiveSub(s)}
+                    >
+                      <td className="p-3">
+                        <div className="font-bold text-white">{s.username}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">{s.id}</div>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant={s.status === 'ACTIVE' ? 'success' : 'danger'}>{s.status}</Badge>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant="default">#{s.shard.toString().padStart(3, '0')}</Badge>
+                      </td>
+                      <td className="p-3 text-slate-400">{s.division}</td>
+                      <td className="p-3 font-mono text-cyanPulse">{s.ip}</td>
+                      <td className="p-3 text-right">
+                        <button className="text-slate-500 hover:text-white transition-colors">
+                          <Icon name="more-horizontal" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="col-span-4 bg-navyBlue border border-white/5 rounded-xl p-4 overflow-auto custom-scrollbar">
+              {activeSub ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-white">Advanced VSA Drawer</h3>
+                    <button onClick={() => setActiveSub(null)}><Icon name="x" className="text-slate-500" /></button>
+                  </div>
+                  
+                  <div className="p-3 bg-deepSpace rounded-lg border border-white/5 space-y-2">
+                    <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">Metadata</div>
+                    <div className="flex justify-between text-xs font-mono"><span>ONT Serial:</span> <span className="text-white">{activeSub.ont}</span></div>
+                    <div className="flex justify-between text-xs font-mono"><span>RX Power:</span> <span className={activeSub.signal < -25 ? 'text-crimsonAlert' : 'text-emeraldSLA'}>{activeSub.signal} dBm</span></div>
+                    <div className="flex justify-between text-xs font-mono"><span>Partition Key:</span> <span className="text-cyanPulse">CRC32(ID)</span></div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2">RFC 3576 Operations</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button className="flex items-center justify-center gap-2 bg-crimsonAlert/10 text-crimsonAlert border border-crimsonAlert/30 py-2 rounded text-[10px] font-bold uppercase hover:bg-crimsonAlert hover:text-white transition-all">
+                        <Icon name="log-out" /> Kick Session
+                      </button>
+                      <button className="flex items-center justify-center gap-2 bg-amberWarning/10 text-amberWarning border border-amberWarning/30 py-2 rounded text-[10px] font-bold uppercase hover:bg-amberWarning hover:text-deepSpace transition-all">
+                        <Icon name="shield-off" /> Walled Garden
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2">RADIUS Packet Trace</div>
+                    <div className="bg-black/80 rounded-lg p-3 font-mono text-[9px] text-emeraldSLA leading-relaxed">
+                      <div>[AUTH] Shard #{activeSub.shard} Hit</div>
+                      <div>[RAD] Access-Request (ID: 42)</div>
+                      <div>[RAD] Mikrotik-Rate-Limit = "50M/50M"</div>
+                      <div>[RAD] Framed-IP-Address = "{activeSub.ip}"</div>
+                      <div className="text-cyanPulse">[RAD] Access-Accept sent in 0.42ms</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-600">
+                  <Icon name="user-plus" className="w-12 h-12 mb-2 opacity-20" />
+                  <p className="text-xs uppercase tracking-widest">Select a subscriber to inspect</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Module 5: TR-069 ACS Console ---
+    const ACSConsole = () => {
+      const [devices, setDevices] = useState([
+        { id: 1, serial: 'ZTEGC1234567', model: 'F670L', status: 'online', signal: -18.2, ssid: 'Home_WiFi_2.4G', pppoe: 'user_1000001' },
+        { id: 2, serial: 'HUAWEI_12345', model: 'HG8145V5', status: 'online', signal: -22.5, ssid: 'TP_Link_Fiber', pppoe: 'user_1000002' },
+        { id: 3, serial: 'VSOL_999888', model: 'V2801SG', status: 'critical', signal: -28.9, ssid: 'Office_Net', pppoe: 'user_1000003' },
+      ]);
+
+      return (
+        <div className="flex flex-col h-full gap-4">
+          <div className="bg-navyBlue border border-white/5 p-6 rounded-xl">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-2">
+              <Icon name="router" className="text-emeraldSLA" />
+              GenieACS TR-069 Control Center
+            </h2>
+            <p className="text-xs text-slate-500 max-w-2xl">
+              Carrier-wide zero-touch provisioning. Monitor live CWMP sessions across Huawei, ZTE, and VSOL fleets. 
+              Push credentials and firmware updates via NBI integration.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            {devices.map(dev => (
+              <div key={dev.id} className="bg-navyBlue border border-white/5 rounded-xl p-4 relative overflow-hidden group">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">{dev.model}</div>
+                    <div className="font-bold text-white font-mono">{dev.serial}</div>
+                  </div>
+                  <Badge variant={dev.status === 'online' ? 'success' : 'danger'}>
+                    {dev.status.toUpperCase()}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-deepSpace rounded p-2 text-center">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-tighter">Rx Optical</div>
+                    <div className={`font-bold font-mono ${dev.signal < -25 ? 'text-crimsonAlert' : 'text-emeraldSLA'}`}>{dev.signal} dBm</div>
+                  </div>
+                  <div className="bg-deepSpace rounded p-2 text-center">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-tighter">CWMP Task</div>
+                    <div className="font-bold text-cyanPulse font-mono italic">Idle</div>
+                  </div>
+                </div>
+
+                <div className="space-y-1 mb-6">
+                  <div className="flex justify-between text-[11px]"> <span className="text-slate-500">SSID:</span> <span className="text-white">{dev.ssid}</span> </div>
+                  <div className="flex justify-between text-[11px]"> <span className="text-slate-500">PPPoE:</span> <span className="text-white">{dev.pppoe}</span> </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="flex items-center justify-center gap-1.5 bg-navyBlue border border-slate-700 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-cyanPulse hover:text-deepSpace transition-colors">
+                    <Icon name="refresh-cw" className="w-3 h-3" /> Sync Optical
+                  </button>
+                  <button className="flex items-center justify-center gap-1.5 bg-navyBlue border border-slate-700 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-cyanPulse hover:text-deepSpace transition-colors">
+                    <Icon name="key" className="w-3 h-3" /> Push Auth
+                  </button>
+                  <button className="flex items-center justify-center gap-1.5 bg-navyBlue border border-slate-700 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-cyanPulse hover:text-deepSpace transition-colors">
+                    <Icon name="wifi" className="w-3 h-3" /> Update Wi-Fi
+                  </button>
+                  <button className="flex items-center justify-center gap-1.5 bg-navyBlue border border-slate-700 py-1.5 rounded text-[9px] font-bold uppercase hover:bg-crimsonAlert hover:text-white transition-colors">
+                    <Icon name="power" className="w-3 h-3" /> Reboot
+                  </button>
+                </div>
+
+                <div className="absolute inset-0 bg-deepSpace/95 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col p-4">
+                  <h4 className="text-[10px] font-bold text-cyanPulse uppercase tracking-widest mb-2">CWMP JSON PREVIEW</h4>
+                  <pre className="text-[9px] font-mono text-emeraldSLA overflow-auto flex-1">
+{`{
+  "name": "setParameterValues",
+  "parameterValues": [
+    ["Device.ManagementServer.InformEnable", true],
+    ["Device.PPP.Interface.1.Username", "${dev.pppoe}"],
+    ["Device.WiFi.Radio.1.SSID", "${dev.ssid}"]
+  ]
+}`}
+                  </pre>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    // --- Module 7: BTRC CGNAT Inspector ---
+    const CGNATInspector = () => {
+      const [ip, setIp] = useState('103.112.40.10');
+      const [port, setPort] = useState('5042');
+      const [result, setResult] = useState<any>(null);
+
+      const calculate = () => {
+        // Mock RFC 6888 Deterministic CGNAT Math
+        const subscriberId = Math.floor(Math.random() * 100000) + 2000000;
+        setResult({
+          user: `subscriber_${subscriberId}`,
+          phone: `01711-${Math.floor(100000+Math.random()*900000)}`,
+          nid: `5501234567${Math.floor(Math.random()*99)}`,
+          ont: `HW-SERIAL-${Math.random().toString(36).substring(7).toUpperCase()}`,
+          shard: getShardId(subscriberId.toString()),
+          offset: Math.floor(Math.random()*32)
+        });
+      };
+
+      return (
+        <div className="grid grid-cols-12 gap-4 h-full">
+          <div className="col-span-4 bg-navyBlue border border-white/5 p-6 rounded-xl space-y-6">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Icon name="calculator" className="text-amberWarning" />
+              RFC 6888 CGNAT Resolver
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Public IPv4 Address</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-deepSpace border border-slate-700 rounded-lg p-2 font-mono text-white focus:border-amberWarning outline-none"
+                  value={ip}
+                  onChange={e => setIp(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Source Port (1024-65535)</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-deepSpace border border-slate-700 rounded-lg p-2 font-mono text-white focus:border-amberWarning outline-none"
+                  value={port}
+                  onChange={e => setPort(e.target.value)}
+                />
+              </div>
+              <button 
+                onClick={calculate}
+                className="w-full py-3 bg-amberWarning text-deepSpace font-bold uppercase rounded-lg hover:bg-white transition-colors"
+              >
+                Inspect Internal Profile
+              </button>
+            </div>
+            <div className="p-4 bg-deepSpace/50 rounded-lg border border-white/5 italic text-slate-500 text-[10px] leading-relaxed">
+              * This tool uses PBA (Port Block Allocation) math to deterministically map external IPv4 traffic to internal subscribers without maintaining huge logs.
+            </div>
+          </div>
+
+          <div className="col-span-8 flex flex-col gap-4">
+            <div className="bg-navyBlue border border-white/5 rounded-xl p-6 flex-1">
+              {result ? (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                    <h3 className="text-xl font-bold tracking-tighter text-amberWarning uppercase">Resolved Subscriber Profile</h3>
+                    <Badge variant="primary">Shard #{result.shard.toString().padStart(3, '0')}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Username', val: result.user, icon: 'user' },
+                        { label: 'Mobile No', val: result.phone, icon: 'phone' },
+                        { label: 'NID / UID', val: result.nid, icon: 'credit-card' },
+                      ].map(item => (
+                        <div key={item.label} className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded bg-deepSpace flex items-center justify-center text-slate-500"><Icon name={item.icon} /></div>
+                          <div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase">{item.label}</div>
+                            <div className="text-white font-mono">{item.val}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-4">
+                      {[
+                        { label: 'ONT Serial', val: result.ont, icon: 'hash' },
+                        { label: 'Deterministic Offset', val: result.offset, icon: 'layers' },
+                        { label: 'POP Location', val: 'Dhaka - Core 01', icon: 'map-pin' },
+                      ].map(item => (
+                        <div key={item.label} className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded bg-deepSpace flex items-center justify-center text-slate-500"><Icon name={item.icon} /></div>
+                          <div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase">{item.label}</div>
+                            <div className="text-white font-mono">{item.val}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-white/5">
+                    <button className="px-4 py-2 bg-navyBlue border border-slate-700 rounded text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white hover:border-white transition-all">
+                      View Full Accounting Logs (ClickHouse)
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-700 opacity-20">
+                  <Icon name="search" className="w-24 h-24 mb-4" />
+                  <div className="text-2xl font-bold tracking-tighter uppercase">No Profile Resolved</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Module 8: Hardware Exporter ---
+    const HardwareExporter = () => {
+      const [tab, setTab] = useState('citus');
+      const configs = {
+        citus: `-- Citus 128-Shard Initialization
+SELECT citus_add_node('citus-worker-1', 5432);
+SELECT create_distributed_table('subscribers', 'subscriber_id');
+SELECT create_distributed_table('radcheck', 'subscriber_id');
+SELECT create_distributed_table('radreply', 'subscriber_id');
+-- Pre-generate 128 shards for predictable CRC32 CRC math
+SELECT master_create_worker_shards('subscribers', 128, 1);`,
+        mikrotik: `/radius add address=10.10.10.10 secret=carrier_secret service=ppp
+/radius incoming set accept=yes port=3799
+/ppp profile add name=Carrier_PBA_Profile \\
+  local-address=10.255.255.1 \\
+  remote-address=cgnat_pba_pool \\
+  use-upnp=no \\
+  use-mpls=yes`,
+        freeradius: `redis {
+  host = "redis-cluster.local"
+  port = 6379
+  timeout = 100
+  pool {
+    start = 10
+    min = 10
+    max = 200
+  }
+}
+# Fast-Path logic inside authorize {}
+if (&User-Name) {
+  update control {
+    &Redis-Command := "GET session:%{User-Name}"
+  }
+}`,
+        genieacs: `// genieacs_provisions.js
+const SERIAL = declare("DeviceID.SerialNumber", {value: 1}).value[0];
+const MODEL = declare("DeviceID.ProductClass", {value: 1}).value[0];
+
+// Push billing credentials
+declare("Device.PPP.Interface.1.Username", {value: 1}, {value: "billing_user"});
+declare("Device.PPP.Interface.1.Password", {value: 1}, {value: "billing_pass"});
+
+// Signal Check
+let rx = declare("Device.Optical.Interface.1.Stats.RxOpticalPower", {value: 1}).value[0];
+if (rx < -25000) {
+  log("CRITICAL: Low signal detected on " + SERIAL);
+}`
+      };
+
+      return (
+        <div className="flex flex-col h-full bg-navyBlue border border-white/5 rounded-xl overflow-hidden">
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold tracking-tighter text-white">Hardware Deployment Exporter</h2>
+              <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mt-1">Ready for Ubuntu 24.04 LTS Bare-Metal Cluster</p>
+            </div>
+            <button className="bg-cyanPulse text-deepSpace px-4 py-2 rounded-lg font-bold text-xs uppercase flex items-center gap-2 hover:bg-white transition-all">
+              <Icon name="download" /> Download Complete Stack (.zip)
+            </button>
+          </div>
+          <div className="flex flex-1 min-h-0">
+            <div className="w-64 border-r border-white/5 flex flex-col">
+              {[
+                { id: 'citus', name: 'Citus Sharding SQL', icon: 'database' },
+                { id: 'mikrotik', name: 'MikroTik BNG .rsc', icon: 'router' },
+                { id: 'freeradius', name: 'FreeRADIUS Fast-Path', icon: 'shield-check' },
+                { id: 'genieacs', name: 'GenieACS Provisions', icon: 'zap' },
+              ].map(item => (
+                <button 
+                  key={item.id}
+                  onClick={() => setTab(item.id)}
+                  className={`p-4 text-left flex items-center gap-3 transition-all border-l-2 ${
+                    tab === item.id ? 'bg-cyanPulse/10 border-cyanPulse text-cyanPulse' : 'bg-transparent border-transparent text-slate-500 hover:bg-white/5'
+                  }`}
+                >
+                  <Icon name={item.icon} />
+                  <span className="text-xs font-bold uppercase tracking-tight">{item.name}</span>
+                </button>
+              ))}
+              <div className="mt-auto p-4 border-t border-white/5 space-y-4">
+                <div className="bg-deepSpace rounded p-3 text-[10px] text-slate-500">
+                  Total Payload: 1.2 MB<br/>
+                  Target: 10,000,000 Subs<br/>
+                  Deployment: Docker Swarm / K8s
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 bg-deepSpace p-4 relative group">
+              <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button className="bg-navyBlue border border-slate-700 p-2 rounded text-slate-400 hover:text-white transition-colors">
+                  <Icon name="copy" />
+                </button>
+              </div>
+              <pre className="font-mono text-xs text-emeraldSLA leading-relaxed overflow-auto h-full custom-scrollbar">
+                {configs[tab as keyof typeof configs]}
+              </pre>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Module 3: Multi-Vendor Tariff Architect ---
+    const MultiVendorTariffs = () => {
+      const [vendor, setVendor] = useState('mikrotik');
+      const [speed, setSpeed] = useState(50);
+      
+      const vsaOutput = useMemo(() => {
+        if (vendor === 'mikrotik') return `Mikrotik-Rate-Limit = "${speed}M/${speed}M"`;
+        if (vendor === 'huawei') return `Huawei-Input-Average-Rate = ${speed * 1024}\nHuawei-Output-Average-Rate = ${speed * 1024}`;
+        return `Juniper-Ingress-Rate-Limit = ${speed * 1000000}\nJuniper-Egress-Rate-Limit = ${speed * 1000000}`;
+      }, [vendor, speed]);
+
+      return (
+        <div className="grid grid-cols-12 gap-4 h-full">
+          <div className="col-span-5 bg-navyBlue border border-white/5 p-6 rounded-xl space-y-6">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Icon name="code-xml" className="text-cyanPulse" />
+              Multi-Vendor VSA Compiler
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Target BNG Vendor</label>
+                <select 
+                  className="w-full bg-deepSpace border border-slate-700 rounded-lg p-2 text-xs text-white outline-none"
+                  value={vendor}
+                  onChange={e => setVendor(e.target.value)}
+                >
+                  <option value="mikrotik">MikroTik RouterOS v7</option>
+                  <option value="huawei">Huawei NE8000 (VRP)</option>
+                  <option value="juniper">Juniper MX Series (Junos)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Bandwidth (Mbps)</label>
+                <input 
+                  type="range" min="1" max="1000" step="1"
+                  className="w-full accent-cyanPulse"
+                  value={speed}
+                  onChange={e => setSpeed(Number(e.target.value))}
+                />
+                <div className="text-center font-bold text-cyanPulse mt-2">{speed} Mbps Symmetric</div>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-white/5 space-y-2">
+              <Badge variant="primary">Standard Tariff</Badge>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                VSAs are sharded across Citus nodes. When a subscriber authenticates, the AAA engine pulls the compiled vendor string from the sharded radreply table.
+              </p>
+            </div>
+          </div>
+
+          <div className="col-span-7 bg-deepSpace border border-white/5 rounded-xl p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Compiled RADIUS Attributes</h3>
+              <button className="text-[10px] font-bold text-cyanPulse uppercase hover:underline">Copy to Shard Cluster</button>
+            </div>
+            <pre className="flex-1 bg-navyBlue rounded-lg p-4 font-mono text-sm text-emeraldSLA leading-loose border border-white/5">
+              {vsaOutput}
+            </pre>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Module 4: BNG Node Fleet ---
+    const BNGFleetManager = () => {
+      const nodes = [
+        { name: 'DHAKA-CORE-01', type: 'MikroTik CCR2216', ip: '10.0.0.1', status: 'online', sessions: '124k' },
+        { name: 'CTG-EDGE-02', type: 'Huawei NE8000', ip: '10.0.0.2', status: 'online', sessions: '450k' },
+        { name: 'SYLHET-CORE-01', type: 'Juniper MX960', ip: '10.0.0.3', status: 'maintenance', sessions: '0' },
+      ];
+
+      return (
+        <div className="flex flex-col h-full gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            {nodes.map(node => (
+              <div key={node.ip} className="bg-navyBlue border border-white/5 p-6 rounded-xl relative overflow-hidden group">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="font-bold text-white tracking-tight">{node.name}</h3>
+                    <div className="text-[10px] font-mono text-slate-500">{node.type}</div>
+                  </div>
+                  <Badge variant={node.status === 'online' ? 'success' : 'warning'}>{node.status}</Badge>
+                </div>
+                <div className="flex items-end justify-between mt-8">
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Active Sessions</div>
+                    <div className="text-2xl font-bold text-cyanPulse tracking-tighter">{node.sessions}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] uppercase font-bold text-slate-500">Management IP</div>
+                    <div className="text-xs font-mono text-white">{node.ip}</div>
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-2 gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="bg-navyBlue border border-slate-700 py-2 rounded text-[10px] font-bold uppercase hover:bg-cyanPulse hover:text-deepSpace transition-colors">Test CoA</button>
+                  <button className="bg-navyBlue border border-slate-700 py-2 rounded text-[10px] font-bold uppercase hover:bg-amberWarning hover:text-deepSpace transition-colors">VSA Sync</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex-1 bg-navyBlue border border-white/5 rounded-xl p-6 flex flex-col">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Anycast AAA Latency Map (BNG to RADIUS)</h3>
+            <div className="flex-1 bg-deepSpace/50 rounded-lg flex items-center justify-center border border-white/5 italic text-slate-600 text-xs">
+              [ Anycast Latency Visualization - Sharded Cluster Telemetry ]
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Module 6: MFS Webhook Lab ---
+    const MFSWebhookLab = () => {
+      const [trxId, setTrxId] = useState('BK' + Math.random().toString(36).substring(7).toUpperCase());
+      const [logs, setLogs] = useState<{ t: string, m: string, s: 'info'|'err' }[]>([]);
+
+      const simulatePayment = (type: 'valid' | 'invalid' | 'duplicate') => {
+        const t = new Date().toLocaleTimeString();
+        if (type === 'valid') {
+          setLogs(prev => [{ t, m: `Incoming Webhook: HMAC verified. trxID: ${trxId}`, s: 'info' }, ...prev]);
+          setLogs(prev => [{ t, m: `Citus Shard Updated: Status -> ACTIVE`, s: 'info' }, ...prev]);
+          setLogs(prev => [{ t, m: `RFC 3576 CoA sent to BNG dhaka-core-01: Success`, s: 'info' }, ...prev]);
+          setLogs(prev => [{ t, m: `TR-069 WAN Restore Task pushed to ONT`, s: 'info' }, ...prev]);
+        } else if (type === 'invalid') {
+          setLogs(prev => [{ t, m: `AUTH ERROR: Invalid HMAC SHA256 Signature (401)`, s: 'err' }, ...prev]);
+        } else {
+          setLogs(prev => [{ t, m: `IDEMPOTENCY ERROR: Duplicate trxID ${trxId} detected in Redis`, s: 'err' }, ...prev]);
+        }
+      };
+
+      return (
+        <div className="grid grid-cols-2 gap-4 h-full">
+          <div className="bg-navyBlue border border-white/5 p-6 rounded-xl space-y-6">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Icon name="credit-card" className="text-cyanPulse" />
+              MFS Gateway Simulator (bKash/Nagad)
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Transaction ID</label>
+                <div className="flex gap-2">
+                  <input readOnly value={trxId} className="flex-1 bg-deepSpace border border-slate-700 rounded p-2 text-xs font-mono text-emeraldSLA outline-none" />
+                  <button onClick={() => setTrxId('BK' + Math.random().toString(36).substring(7).toUpperCase())} className="bg-navyBlue border border-slate-700 px-3 rounded text-slate-400 hover:text-white"><Icon name="refresh-cw" className="w-3 h-3" /></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => simulatePayment('valid')} className="bg-emeraldSLA text-deepSpace py-3 rounded text-[10px] font-bold uppercase hover:bg-white transition-all">Test Valid</button>
+                <button onClick={() => simulatePayment('invalid')} className="bg-crimsonAlert text-white py-3 rounded text-[10px] font-bold uppercase hover:bg-white hover:text-crimsonAlert transition-all">Test 401</button>
+                <button onClick={() => simulatePayment('duplicate')} className="bg-amberWarning text-deepSpace py-3 rounded text-[10px] font-bold uppercase hover:bg-white transition-all">Duplicate</button>
+              </div>
+            </div>
+            <div className="p-4 bg-deepSpace rounded border border-white/5">
+              <div className="text-[10px] font-bold text-slate-500 uppercase mb-2">GenieACS WAN Flow</div>
+              <div className="flex items-center gap-4 text-[10px] font-mono text-slate-400">
+                <span>Payment</span> <Icon name="arrow-right" className="w-3 h-3" />
+                <span className="text-cyanPulse">Billing</span> <Icon name="arrow-right" className="w-3 h-3" />
+                <span className="text-emeraldSLA">CoA</span> <Icon name="arrow-right" className="w-3 h-3" />
+                <span className="text-emeraldSLA">ACS Push</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-deepSpace border border-white/5 rounded-xl p-6 flex flex-col">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Webhook Processing Trace</h3>
+            <div className="flex-1 bg-navyBlue rounded-lg p-4 font-mono text-[10px] overflow-auto custom-scrollbar leading-relaxed">
+              {logs.map((log, i) => (
+                <div key={i} className={`mb-1 ${log.s === 'err' ? 'text-crimsonAlert' : 'text-emeraldSLA'}`}>
+                  <span className="text-slate-500">[{log.t}]</span> {log.m}
+                </div>
+              ))}
+              {logs.length === 0 && <div className="text-slate-700">Waiting for webhook trigger...</div>}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- Main App ---
+    const App = () => {
+      const [activeModule, setActiveModule] = useState('noc');
+
+      useEffect(() => {
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+          setTimeout(() => {
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 500);
+          }, 1500);
+        }
+      }, []);
+
+      const NAV_ITEMS = [
+        { id: 'noc', name: 'NOC Command', icon: 'activity' },
+        { id: 'subscribers', name: 'Subscriber Shards', icon: 'users' },
+        { id: 'tariffs', name: 'VSA Architect', icon: 'code-xml' },
+        { id: 'bng', name: 'BNG Fleet', icon: 'router' },
+        { id: 'acs', name: 'GenieACS Console', icon: 'zap' },
+        { id: 'billing', name: 'Webhook Lab', icon: 'credit-card' },
+        { id: 'cgnat', name: 'BTRC CGNAT', icon: 'calculator' },
+        { id: 'deploy', name: 'Deploy Exporter', icon: 'box' },
+      ];
+
+      return (
+        <div className="flex h-screen bg-deepSpace overflow-hidden">
+          {/* Main Sidebar */}
+          <div className="w-16 flex flex-col items-center py-6 bg-navyBlue border-r border-white/5 gap-8">
+            <div className="w-10 h-10 bg-cyanPulse rounded-xl flex items-center justify-center text-deepSpace shadow-[0_0_20px_rgba(72,202,228,0.3)]">
+              <Icon name="wifi" className="w-6 h-6" />
+            </div>
+            <div className="flex flex-col gap-4 flex-1">
+              {NAV_ITEMS.map(item => (
+                <button 
+                  key={item.id}
+                  onClick={() => setActiveModule(item.id)}
+                  title={item.name}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                    activeModule === item.id ? 'bg-cyanPulse text-deepSpace shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Icon name={item.icon} className="w-5 h-5" />
+                </button>
+              ))}
+            </div>
+            <button className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-700 hover:text-crimsonAlert transition-colors">
+              <Icon name="log-out" />
+            </button>
+          </div>
+
+          {/* Page Container */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Top Bar */}
+            <header className="h-14 border-b border-white/5 flex items-center justify-between px-8 bg-navyBlue/50 backdrop-blur-md">
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 font-mono">System v2.5.0</span>
+                <span className="w-px h-4 bg-white/5"></span>
+                <h1 className="font-bold tracking-tight text-slate-200">
+                  {NAV_ITEMS.find(n => n.id === activeModule)?.name}
+                </h1>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emeraldSLA animate-pulse"></div>
+                  <span className="text-[10px] font-mono text-emeraldSLA uppercase tracking-tighter">Citus Cluster Healthy</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Icon name="clock" className="text-slate-500 w-3 h-3" />
+                  <span className="text-[10px] font-mono text-slate-400">Nov 07, 21:31:34</span>
+                </div>
+              </div>
+            </header>
+
+            {/* View Area */}
+            <main className="flex-1 p-8 overflow-hidden custom-scrollbar">
+              {activeModule === 'noc' && <NOCDashboard />}
+              {activeModule === 'subscribers' && <ShardedSubscribers />}
+              {activeModule === 'tariffs' && <MultiVendorTariffs />}
+              {activeModule === 'bng' && <BNGFleetManager />}
+              {activeModule === 'acs' && <ACSConsole />}
+              {activeModule === 'billing' && <MFSWebhookLab />}
+              {activeModule === 'cgnat' && <CGNATInspector />}
+              {activeModule === 'deploy' && <HardwareExporter />}
+            </main>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

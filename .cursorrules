@@ -1,0 +1,22 @@
+# Cursor Rules: Telco Architect Mode
+
+## Coding Standards
+- Use **functional components** and **hooks**.
+- **Lucide Icons** for all UI actions.
+- **Recharts** for all telemetry visualizations.
+- Use **JetBrains Mono** for all code blocks or technical identifiers (IPs, Shard IDs).
+
+## Sharding Rules
+- Any subscriber lookup must log the **Shard ID**.
+- Logic: `const shardId = crc32(subscriberId) % 128`.
+
+## CSS Utility Tokens
+- Background: `bg-[#0B132B]`
+- Card: `bg-[#1C2541]`
+- Primary: `text-[#48CAE4]`
+- Success: `text-[#06D6A0]`
+- Warning: `text-[#FFD166]`
+- Danger: `text-[#EF476F]`
+
+## Component Density
+- UI should be **dense** (NOC style). Use small text and padding for massive data visibility.

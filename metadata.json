@@ -1,0 +1,6 @@
+{
+  "name": "ISP Billing (Carrier Edition)",
+  "description": "5M–10M Subscriber Carrier AAA/BSS platform with 128 Citus shards, Redis Fast-Path, ClickHouse Accounting, and TR-069 integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
