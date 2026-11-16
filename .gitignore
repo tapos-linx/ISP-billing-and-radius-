@@ -1,0 +1,9 @@
+﻿.env
+.env.*
+!.env.example
+local.properties
+/vendor/
+/node_modules/
+/storage/*.key
+*.log
+.DS_Store
