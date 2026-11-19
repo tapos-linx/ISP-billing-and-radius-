@@ -1,9 +1,24 @@
 package com.example.data.model
 
+import java.util.zip.CRC32
+
 enum class SubscriberStatus(val value: String) {
     ACTIVE("active"),
     EXPIRED("expired"),
-    SUSPENDED("suspended")
+    SUSPENDED("suspended"),
+    DISABLED("disabled")
+}
+
+fun computeCitusShardId(key: String, shardCount: Int = 128): Int {
+    val crc = CRC32()
+    crc.update(key.toByteArray(Charsets.UTF_8))
+    return (crc.value % shardCount).toInt()
+}
+
+fun computeCgnatPortBlock(index: Int): Pair<Int, Int> {
+    val blockSize = 512
+    val start = 1024 + ((index % 120) * blockSize)
+    return start to (start + blockSize - 1)
 }
 
 data class Subscriber(
@@ -21,7 +36,14 @@ data class Subscriber(
     val activeSessionId: String? = null,
     val uptimeSeconds: Long = 0,
     val inputBytes: Long = 0,
-    val outputBytes: Long = 0
+    val outputBytes: Long = 0,
+    val division: String = "Dhaka",
+    val shardId: Int = computeCitusShardId(username),
+    val ontSerial: String = "HW-GPON-${1000 + (id % 9000)}",
+    val opticalRxDbm: Double = -18.4,
+    val cgnatPublicIp: String = "103.112.40.${(id % 250) + 1}",
+    val cgnatPortStart: Int = computeCgnatPortBlock(id.toInt()).first,
+    val cgnatPortEnd: Int = computeCgnatPortBlock(id.toInt()).second
 )
 
 data class RadAcctRecord(

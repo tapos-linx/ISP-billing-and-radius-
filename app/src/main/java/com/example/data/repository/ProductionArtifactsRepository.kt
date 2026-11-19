@@ -206,7 +206,7 @@ VALUES ('127.0.0.1', 'localhost_bench', 'other', 1812, 'testing123', 'Local Benc
 ON CONFLICT (nasname) DO UPDATE SET secret = EXCLUDED.secret;
 
 INSERT INTO nas (nasname, shortname, type, ports, secret, description)
-VALUES ('10.10.10.1', 'ccr2004_core', 'mikrotik', 3799, 'RadiusSecretKey2026', 'Mikrotik Core Router')
+VALUES ('10.10.10.1', 'ccr2004_core', 'mikrotik', 3799, '<YOUR_RADIUS_SECRET>', 'Mikrotik Core Router')
 ON CONFLICT (nasname) DO UPDATE SET secret = EXCLUDED.secret;
 
 -- Seed PPPoE Test User: tapos_test

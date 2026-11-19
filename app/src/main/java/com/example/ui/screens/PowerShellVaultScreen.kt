@@ -123,7 +123,7 @@ if (${'$'}avg -lt 10.0) {
 param (
     [string]${'$'}NasIp = "10.10.10.1",
     [int]${'$'}NasPort = 3799,
-    [string]${'$'}Secret = "RadiusSecretKey2026",
+    [string]${'$'}Secret = "<YOUR_RADIUS_SECRET>",
     [string]${'$'}Username = "pilot_user_01",
     [string]${'$'}FramedIp = "10.100.0.10"
 )
