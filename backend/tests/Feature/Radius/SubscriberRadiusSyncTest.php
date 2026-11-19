@@ -13,7 +13,7 @@ use Tests\TestCase;
 
 final class SubscriberRadiusSyncTest extends TestCase
 {
-    use RefreshDatabase;
+    // use RefreshDatabase;
 
     public function test_active_subscriber_syncs_radcheck_radreply_and_redis(): void
     {
