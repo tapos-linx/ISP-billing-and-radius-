@@ -1,0 +1,27 @@
+# ==============================================================================
+# Production Dockerfile for Google Cloud Run (PHP 8.3 + Nginx + PHP-FPM)
+# Includes sockets (UDP 3799 CoA/PoD), phpredis, pdo_pgsql, and bcmath.
+# ==============================================================================
+FROM php:8.3-fpm-alpine
+
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    postgresql-dev \
+    libpng-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    freeradius-utils \
+    $PHPIZE_DEPS \
+    && docker-php-ext-install pdo pdo_pgsql pgsql bcmath gd sockets \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del $PHPIZE_DEPS
+
+WORKDIR /var/www/html
+COPY . .
+
+# Cloud Run listens on PORT 8080
+EXPOSE 8080
+
+CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]

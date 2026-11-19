@@ -1,0 +1,49 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: isp_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./isp_sla_alerts.yml:/etc/prometheus/isp_sla_alerts.yml:ro
+    restart: always
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: isp_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme_in_env}
+    volumes:
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: always
+
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: isp_postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME:-isp_admin}:${DB_PASSWORD}@citus_master:5432/${DB_DATABASE:-isp_bss_oss}?sslmode=disable"
+    ports:
+      - "9187:9187"
+    restart: always
+
+  redis_exporter:
+    image: oliver006/redis_exporter:v1.63.0
+    container_name: isp_redis_exporter
+    environment:
+      REDIS_ADDR: "redis://redis_cluster:6379"
+    ports:
+      - "9121:9121"
+    restart: always
+
+  freeradius_exporter:
+    image: bvantag/freeradius_exporter:latest
+    container_name: isp_freeradius_exporter
+    command: ["--radius.address=freeradius_aaa:18121", "--radius.secret=${RADIUS_STATUS_SECRET}"]
+    ports:
+      - "9812:9812"
+    restart: always

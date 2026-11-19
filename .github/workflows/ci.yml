@@ -1,0 +1,25 @@
+name: ISP Billing & FreeRADIUS CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: PHP Syntax Lint
+        run: find stage3 stage4 database tests -name '*.php' -exec php -l {} +
+      - name: Shell Script Syntax Check
+        run: bash -n infra/ha/pgbackrest_backup_restore_drill.sh
+      - name: Validate Docker Compose & Monitoring Config
+        run: |
+          docker compose -f infra/docker-compose.yml config --quiet
+          docker compose -f infra/monitoring/docker-compose.monitoring.yml config --quiet

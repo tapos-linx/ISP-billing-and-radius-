@@ -1,0 +1,16 @@
+Req_ID,Title,Priority,Target_Plane,Endpoint_or_Table,Test_Case_ID,Zero_Risk_Verification_Method,Status
+FR-001,Multi-Tenant Auth & RBAC,Must,Cloud Run + Firebase Auth,GET /api/v1/subscribers,TC-001,PHPUnit / Supertest tenant isolation check,Planned
+FR-002,Subscriber Provisioning & RADIUS Sync,Must,Cloud Run + Citus + Redis,POST /api/v1/subscribers / radcheck / radreply,TC-002,Integration test verifying atomic Citus + Redis write,Planned
+FR-003,PPPoE AAA Auth & Accounting,Must,GCE FreeRADIUS + Redis + Citus,UDP 1812/1813 / radacct,TC-003,radtest CLI + Virtual MikroTik CHR (<10ms SLA),Planned
+FR-004,Dynamic CoA/PoD Session Kick,Must,Cloud Run -> GCE FreeRADIUS -> BNG,POST /api/v1/coa/disconnect (UDP 3799),TC-004,radclient CoA/PoD against Virtual MikroTik CHR (<500ms),Planned
+FR-005,Automated Daily Expiry & Walled Garden,Must,Cloud Scheduler + Cloud Run,POST /api/v1/jobs/expire-overdue,TC-005,Simulated cron run + CHR walled_garden_pool check,Planned
+FR-006,bKash & Nagad MFS Webhook Settlement,Must,Cloud Run + Redis (noeviction),POST /api/v1/webhooks/bkash & /nagad,TC-006,Mock MFS HMAC-SHA256 + Redis SETNX idempotency (<3s),Planned
+FR-007,Tariff & Multi-Vendor NAS Management,Must,Cloud Run + GCE FreeRADIUS,CRUD /api/v1/tariffs & /nas / clients.conf,TC-007,Verify WireGuard subnet lock (no 0.0.0.0/0),Planned
+FR-008,OLT & GenieACS TR-069 Telemetry,Should,GCE GenieACS + Zabbix + Cloud Run,GET /api/v1/noc/telemetry / ont_devices,TC-008,Mock GenieACS NBI & SNMP telemetry fixture,Planned
+FR-009,Customer Self-Care PWA & Captive Portal,Must,Cloud Run + React 19 PWA,GET /portal/v1/* & POST /portal/v1/pay,TC-009,E2E browser test in Walled Garden NAT simulation,Planned
+FR-010,Gemini API NOC Copilot Diagnostics,Should,Cloud Run + Google AI Studio,POST /api/v1/ai/diagnose,TC-010,verify_ai_endpoints.py --check-gemini --check-bss,Planned
+NFR-001,Latency SLA (<0.4ms/<10ms/<500ms/<3s),Must,All Planes,Auth / CoA / MFS / API P99,TC-011,k6 / radtest latency benchmark in Docker lab,Planned
+NFR-002,Citus 128-Shard Scalability,Must,Citus PG16 + ClickHouse,subscribers (128) / radacct / ClickHouse,TC-012,Synthetic 100k row shard distribution test,Planned
+NFR-003,Zero-Risk Isolated Lab Enforcement,Must,Docker + Virtual CHR + Mock MFS,All local/staging environments,TC-013,Verify zero live ISP router IPs in test configs,Planned
+NFR-004,Redis noeviction & Backup Safety,Must,Memorystore / Redis 7 + PG16,docker-compose.yml / pg_dump,TC-014,Verify REDIS_POLICY=noeviction & restore drill,Planned
+NFR-005,Secret Manager & HMAC Security,Must,GCP Secret Manager + Cloud Run,.env.example / Secret Manager,TC-015,Secret scan & invalid HMAC rejection test (HTTP 401),Planned

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // File: tests/Feature/SubscriberRadiusSyncTest.php
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ class SubscriberRadiusSyncTest extends TestCase
             'shortname'    => 'dhaka-ccr2216-01',
             'type'         => 'mikrotik',
             'ports'        => 3799,
-            'secret'       => 'RadiusSecretKey2026',
+            'secret'       => '${RADIUS_SECRET}',
             'description'  => 'Dhaka Core MikroTik CCR2216 BNG',
             'pop_division' => 'Dhaka',
             'is_active'    => true,
@@ -202,3 +202,4 @@ class SubscriberRadiusSyncTest extends TestCase
         $this->assertDatabaseMissing('radreply', ['username' => 'sylhet_temp_01']);
     }
 }
+

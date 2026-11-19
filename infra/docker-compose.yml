@@ -1,0 +1,131 @@
+﻿
+networks:
+  isp_internal_net:
+  isp_external_net:
+    driver: bridge
+
+volumes:
+  citus_master_data:
+  redis_data:
+  radius_logs:
+
+services:
+  citus_master:
+    image: citusdata/citus:12.1-postgres16
+    container_name: citus_master
+    environment:
+      POSTGRES_DB: isp_bss_oss
+      POSTGRES_USER: isp_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${DB_PASSWORD}}
+    ports:
+      - "5432:5432"
+    volumes:
+      - citus_master_data:/var/lib/postgresql/data
+      - ./init-citus-shards-complete.sql:/docker-entrypoint-initdb.d/init-citus-shards.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U isp_admin -d isp_bss_oss"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - isp_internal_net
+    restart: always
+
+  citus_worker_1:
+    image: citusdata/citus:12.1-postgres16
+    container_name: citus_worker_1
+    environment:
+      POSTGRES_DB: isp_bss_oss
+      POSTGRES_USER: isp_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${DB_PASSWORD}}
+    networks:
+      - isp_internal_net
+    restart: always
+
+  citus_worker_2:
+    image: citusdata/citus:12.1-postgres16
+    container_name: citus_worker_2
+    environment:
+      POSTGRES_DB: isp_bss_oss
+      POSTGRES_USER: isp_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-${DB_PASSWORD}}
+    networks:
+      - isp_internal_net
+    restart: always
+
+  redis_cluster:
+    image: redis:7.2-alpine
+    container_name: redis_cluster
+    # Fixed: noeviction prevents MFS SETNX keys and CoA jobs from being evicted
+    command: redis-server --appendonly yes --maxmemory 4gb --maxmemory-policy noeviction
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - isp_internal_net
+    restart: always
+
+  freeradius:
+    image: freeradius/freeradius-server:latest
+    container_name: freeradius_aaa
+    ports:
+      - "1812:1812/udp"
+      - "1813:1813/udp"
+      - "3799:3799/udp"
+    volumes:
+      - ./freeradius/radiusd.conf:/etc/freeradius/3.0/radiusd.conf
+      - ./freeradius/clients.conf:/etc/freeradius/3.0/clients.conf
+      - ./freeradius/sql.conf:/etc/freeradius/3.0/mods-enabled/sql
+      - radius_logs:/var/log/freeradius
+    depends_on:
+      citus_master:
+        condition: service_healthy
+      redis_cluster:
+        condition: service_healthy
+    networks:
+      - isp_internal_net
+      - isp_external_net
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: rabbitmq_broker
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-isp_rabbit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-${RABBITMQ_PASSWORD}}
+    networks:
+      - isp_internal_net
+    restart: always
+
+  laravel_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.laravel
+    container_name: laravel_bss_oss
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      citus_master:
+        condition: service_healthy
+      redis_cluster:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - isp_internal_net
+      - isp_external_net
+    restart: always
+

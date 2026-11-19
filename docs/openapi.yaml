@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  title: ISP Billing & FreeRADIUS Automation BSS/OSS API
+  version: 1.0.0
+  description: Carrier-scale (1M-10M) BSS/OSS, FreeRADIUS CoA/PoD, MFS Webhook, and Customer Portal API for Google Cloud Run + GCE.
+servers:
+  - url: https://isp-billing-bss-api-asia-south1.a.run.app/api/v1
+    description: Google Cloud Run Production
+  - url: http://localhost:8000/api/v1
+    description: Local Docker / Zero-Risk Lab
+paths:
+  /health:
+    get:
+      summary: Verify Citus, Redis (noeviction), RabbitMQ, and FreeRADIUS health
+      responses:
+        '200':
+          description: All core planes healthy
+  /subscribers:
+    get:
+      summary: List paginated subscribers (tenant_id isolated)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, expired, suspended] }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+      responses:
+        '200': { description: Paginated subscriber list }
+    post:
+      summary: Create subscriber and atomically sync radcheck, radreply & Redis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenant_id, tariff_id, username, password]
+              properties:
+                tenant_id: { type: integer }
+                tariff_id: { type: integer }
+                username: { type: string }
+                password: { type: string }
+                mac_address: { type: string }
+                vlan_id: { type: integer }
+      responses:
+        '201': { description: Subscriber provisioned and synced to RADIUS }
+  /coa/disconnect:
+    post:
+      summary: Send RFC 5176 Disconnect-Request (PoD) over UDP 3799 (<500ms)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, nas_ip]
+              properties:
+                username: { type: string }
+                nas_ip: { type: string }
+                acct_session_id: { type: string }
+      responses:
+        '200': { description: Disconnect-ACK received }
+  /coa/change-speed:
+    post:
+      summary: Send RFC 5176 CoA-Request to resize active PPPoE bandwidth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, nas_ip, rate_limit]
+              properties:
+                username: { type: string }
+                nas_ip: { type: string }
+                rate_limit: { type: string, example: "50M/50M" }
+      responses:
+        '200': { description: CoA-ACK received }
+  /webhooks/bkash:
+    post:
+      summary: Idempotent bKash Tokenized Checkout webhook (HMAC-SHA256 + Redis SETNX)
+      responses:
+        '200': { description: Invoice settled, +30d extended, CoA reset dispatched (<3s) }
+        '401': { description: Invalid HMAC signature }
+  /webhooks/nagad:
+    post:
+      summary: Idempotent Nagad Direct API payment callback
+      responses:
+        '200': { description: Invoice settled and line restored }
+  /jobs/expire-overdue:
+    post:
+      summary: Cloud Scheduler 00:01 AM Dhaka job to expire overdue subscribers & kick via PoD
+      responses:
+        '200': { description: Expired accounts moved to walled_garden_pool }
+  /noc/telemetry:
+    get:
+      summary: Fetch live PPPoE sessions, RouterOS queues, and OLT/GenieACS optical Rx (dBm)
+      responses:
+        '200': { description: Telemetry snapshot }
+  /ai/diagnose:
+    post:
+      summary: Gemini API NOC Copilot diagnostics for radpostauth & optical drops
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, symptom]
+              properties:
+                username: { type: string }
+                symptom: { type: string }
+      responses:
+        '200': { description: Actionable root cause and CLI steps }

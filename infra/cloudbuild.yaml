@@ -1,0 +1,33 @@
+steps:
+  # 1. Build Cloud Run production container
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'Dockerfile.prod'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/isp-billing/bss-api:$COMMIT_SHA'
+      - '.'
+
+  # 2. Push image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/isp-billing/bss-api:$COMMIT_SHA'
+
+  # 3. Deploy to Cloud Run (asia-south1) with VPC Connector & Secret Manager
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'isp-billing-bss-api'
+      - '--image=asia-south1-docker.pkg.dev/$PROJECT_ID/isp-billing/bss-api:$COMMIT_SHA'
+      - '--region=asia-south1'
+      - '--port=8080'
+      - '--vpc-connector=isp-vpc-connector'
+      - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,RADIUS_SECRET=RADIUS_SECRET:latest,BKASH_APP_SECRET=BKASH_APP_SECRET:latest,NAGAD_MERCHANT_KEY=NAGAD_MERCHANT_KEY:latest'
+      - '--allow-unauthenticated'
+
+images:
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/isp-billing/bss-api:$COMMIT_SHA'

@@ -1,4 +1,4 @@
-# ISP Billing & Telecom BSS/OSS Architect Console
+﻿# ISP Billing & Telecom BSS/OSS Architect Console
 
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%2010%2F11%20WSL2-blue.svg)](#platform-support)
 [![Docker](https://img.shields.io/badge/Docker-PostgreSQL%2016%20%7C%20FreeRADIUS%203.2%20%7C%20Redis%207-cyan.svg)](#docker-architecture)
@@ -32,37 +32,37 @@
 ## Architecture Overview
 
 ```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                        ISP Billing Ecosystem                           │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-           ┌────────────────────────┴────────────────────────┐
-           ▼                                                 ▼
-┌───────────────────────────┐                     ┌──────────────────────┐
-│ Android Architect Console │                     │ Windows WSL2 Backend │
-│ (Kotlin + Jetpack Compose)│                     │ (Docker Containers)  │
-│                           │                     │                      │
-│ • 5-Stage Matrix Explorer │                     │ • PostgreSQL 16      │
-│ • Interactive Test Lab    │ ◄── REST / UDP ──►  │   (radcheck/radreply)│
-│ • RFC 3576 PoD Simulator  │                     │   (partition radacct)│
-│ • bKash/Nagad Webhook Sim │                     │ • FreeRADIUS 3.2.3   │
-│ • Accounting & Subscribers│                     │   (rlm_sql, UDP 1812)│
-│ • Dual AI Architect Engine│                     │ • Redis 7 Cache      │
-│ • PowerShell Script Vault │                     │ • MinIO S3 Backups   │
-└───────────────────────────┘                     └──────────────────────┘
-                                                             │
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                        ISP Billing Ecosystem                           â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                    â”‚
+           â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+           â–¼                                                 â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”                     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ Android Architect Console â”‚                     â”‚ Windows WSL2 Backend â”‚
+â”‚ (Kotlin + Jetpack Compose)â”‚                     â”‚ (Docker Containers)  â”‚
+â”‚                           â”‚                     â”‚                      â”‚
+â”‚ â€¢ 5-Stage Matrix Explorer â”‚                     â”‚ â€¢ PostgreSQL 16      â”‚
+â”‚ â€¢ Interactive Test Lab    â”‚ â—„â”€â”€ REST / UDP â”€â”€â–º  â”‚   (radcheck/radreply)â”‚
+â”‚ â€¢ RFC 3576 PoD Simulator  â”‚                     â”‚   (partition radacct)â”‚
+â”‚ â€¢ bKash/Nagad Webhook Sim â”‚                     â”‚ â€¢ FreeRADIUS 3.2.3   â”‚
+â”‚ â€¢ Accounting & Subscribersâ”‚                     â”‚   (rlm_sql, UDP 1812)â”‚
+â”‚ â€¢ Dual AI Architect Engineâ”‚                     â”‚ â€¢ Redis 7 Cache      â”‚
+â”‚ â€¢ PowerShell Script Vault â”‚                     â”‚ â€¢ MinIO S3 Backups   â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                                                             â”‚
                                                      UDP 3799 (CoA / PoD)
                                                      HTTPS REST API
-                                                             │
-                                                             ▼
-                                                  ┌──────────────────────┐
-                                                  │ Mikrotik CCR2004     │
-                                                  │ RouterOS v7 (BRAS)   │
-                                                  │                      │
-                                                  │ • PPPoE Server       │
-                                                  │ • Simple Queues      │
-                                                  │ • Walled Garden Pool │
-                                                  └──────────────────────┘
+                                                             â”‚
+                                                             â–¼
+                                                  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                                                  â”‚ Mikrotik CCR2004     â”‚
+                                                  â”‚ RouterOS v7 (BRAS)   â”‚
+                                                  â”‚                      â”‚
+                                                  â”‚ â€¢ PPPoE Server       â”‚
+                                                  â”‚ â€¢ Simple Queues      â”‚
+                                                  â”‚ â€¢ Walled Garden Pool â”‚
+                                                  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
@@ -71,11 +71,11 @@
 
 | Stage | Days | Title | Key Technologies | Verified Target SLA |
 |---|---|---|---|---|
-| **Stage 1** | Days 1–5 | **Foundation & RADIUS Core** | Docker Compose, PostgreSQL 16 Partitioning, Redis 7, FreeRADIUS 3.2 rlm_sql | **< 10ms** Access-Accept query |
-| **Stage 2** | Days 6–12 | **BSS Engine & Framework** | Laravel 11, FilamentPHP v3, Eloquent Observers, Dual-Sync Transactions | **< 50ms** Observer sync |
-| **Stage 3** | Days 13–18 | **RFC 3576 CoA & REST Automation** | UDP 3799 PoD Service, RouterOS v7 REST, Horizon Queues | **< 500ms** Session kick latency |
-| **Stage 4** | Days 19–24 | **Billing & MFS Webhook Auto-Unblock** | Scheduled Expiry, HMAC-SHA256, bKash / Nagad Webhooks | **< 3.0s** Payment-to-unblock |
-| **Stage 5** | Days 25–28 | **Self-Care PWA & Hardening** | Inertia.js + Vue 3, DomPDF, MinIO S3 Backups, Windows Firewall | **99.9%** High Availability |
+| **Stage 1** | Days 1â€“5 | **Foundation & RADIUS Core** | Docker Compose, PostgreSQL 16 Partitioning, Redis 7, FreeRADIUS 3.2 rlm_sql | **< 10ms** Access-Accept query |
+| **Stage 2** | Days 6â€“12 | **BSS Engine & Framework** | Laravel 11, FilamentPHP v3, Eloquent Observers, Dual-Sync Transactions | **< 50ms** Observer sync |
+| **Stage 3** | Days 13â€“18 | **RFC 3576 CoA & REST Automation** | UDP 3799 PoD Service, RouterOS v7 REST, Horizon Queues | **< 500ms** Session kick latency |
+| **Stage 4** | Days 19â€“24 | **Billing & MFS Webhook Auto-Unblock** | Scheduled Expiry, HMAC-SHA256, bKash / Nagad Webhooks | **< 3.0s** Payment-to-unblock |
+| **Stage 5** | Days 25â€“28 | **Self-Care PWA & Hardening** | Inertia.js + Vue 3, DomPDF, MinIO S3 Backups, Windows Firewall | **99.9%** High Availability |
 
 ---
 
@@ -83,11 +83,11 @@
 
 ### Method 1: Direct APK Installation (Recommended)
 1. Download or export the `app-debug.apk` file:
-   - In **Google AI Studio**: Click **Settings** (gear icon) → **Download Project as ZIP** or **Export APK**.
+   - In **Google AI Studio**: Click **Settings** (gear icon) â†’ **Download Project as ZIP** or **Export APK**.
    - Or use the pre-built APK generated in `.build-outputs/` or `app/build/outputs/apk/debug/`.
 2. Transfer the `.apk` file to your Android phone or tablet (via USB, Google Drive, WhatsApp, or email).
 3. On your Android device:
-   - Open **Settings** → **Security** (or **Apps**).
+   - Open **Settings** â†’ **Security** (or **Apps**).
    - Enable **Install Unknown Apps** for your browser or file manager.
    - Tap `app-debug.apk` and select **Install**.
 4. Open the **ISP Billing** app from your home screen.
@@ -100,10 +100,10 @@
 
 #### Option A: Using Android Studio
 1. Open **Android Studio** (Hedgehog, Iguana, Jellyfish, or newer).
-2. Select **File** → **Open...** and select this repository's root folder.
+2. Select **File** â†’ **Open...** and select this repository's root folder.
 3. Allow Gradle to synchronize dependencies.
 4. Connect an Android phone via USB (with **USB Debugging** enabled) or start an Android Emulator.
-5. Click the green **Run (▶)** button or press `Shift + F10`.
+5. Click the green **Run (â–¶)** button or press `Shift + F10`.
 
 #### Option B: Using Command Line (Windows / Linux / macOS)
 On Windows:
@@ -192,7 +192,7 @@ docker exec -it isp_postgres psql -U radius_user -d isp_billing -c "SELECT * FRO
 #### Default Container Credentials & Ports
 | Service | Container Name | Port Mapping | Credentials |
 |---|---|---|---|
-| **FreeRADIUS 3.2** | `isp_freeradius` | `1812/udp` (Auth)<br>`1813/udp` (Acct)<br>`3799/udp` (CoA) | Secret: `testing123` / `RadiusSecretKey2026` |
+| **FreeRADIUS 3.2** | `isp_freeradius` | `1812/udp` (Auth)<br>`1813/udp` (Acct)<br>`3799/udp` (CoA) | Secret: `testing123` / `${RADIUS_SECRET}` |
 | **PostgreSQL 16** | `isp_postgres` | `127.0.0.1:5432` | User: `radius_user`<br>Pass: `SecretRadiusDbPassword2026!`<br>DB: `isp_billing` |
 | **Redis 7** | `isp_redis` | `127.0.0.1:6379` | Token: `SecretRedisToken2026!` |
 
@@ -226,7 +226,7 @@ Connect to your Mikrotik CCR router using Winbox or SSH and paste the following 
 /ppp aaa set use-radius=yes accounting=yes interim-update=5m
 
 # 4. RADIUS Server Connection
-/radius add service=ppp address=10.10.10.254 secret="RadiusSecretKey2026" authentication-port=1812 accounting-port=1813 timeout=300ms
+/radius add service=ppp address=10.10.10.254 secret="${RADIUS_SECRET}" authentication-port=1812 accounting-port=1813 timeout=300ms
 
 # 5. Enable RFC 3576 Incoming CoA / PoD on UDP 3799
 /radius incoming set accept=yes port=3799
@@ -255,40 +255,40 @@ The Android application includes a real-time hardware simulation suite:
 4. **RouterOS v7 Script Builder:**
    - Dynamically generates copy-pasteable RouterOS `.rsc` configurations based on custom VLAN, IP pools, and FreeRADIUS IP inputs.
 5. **Dual AI Architect Engine:**
-   - ⚡ **Low-Latency Mode** (`gemini-3.1-flash-lite`): Fast answers for PowerShell flags, FreeRADIUS dictionary attributes, and RouterOS commands.
-   - 🧠 **High Thinking Mode** (`gemini-4-argon` with high thinking level): Deep architectural guidance on BGP multihoming, MPLS, high-availability PostgreSQL, and BSS database sharding.
+   - âš¡ **Low-Latency Mode** (`gemini-3.1-flash-lite`): Fast answers for PowerShell flags, FreeRADIUS dictionary attributes, and RouterOS commands.
+   - ðŸ§  **High Thinking Mode** (`gemini-4-argon` with high thinking level): Deep architectural guidance on BGP multihoming, MPLS, high-availability PostgreSQL, and BSS database sharding.
 
 ---
 
 ## Repository Structure
 
 ```text
-├── app/                                 # Android Application Module (Kotlin + Jetpack Compose)
-│   ├── src/main/java/com/example/
-│   │   ├── MainActivity.kt              # App entry point with edge-to-edge Compose UI
-│   │   ├── data/model/                  # Subscriber, RadAcct, Stage models
-│   │   ├── data/repository/             # ProductionArtifactsRepository (5 Stages)
-│   │   ├── ui/screens/                  # StageMatrix, Tools, SubscriberConsole, AI Architect
-│   │   └── viewmodel/                   # IspArchitectViewModel (Simulators & State)
-│   └── build.gradle.kts                 # Android Gradle dependencies & SDK config
-├── stage1/                              # Stage 1 Docker & FreeRADIUS configuration
-│   ├── freeradius/                      # radiusd.conf, clients.conf, rlm_sql config
-│   ├── scripts/                         # verify-radtest.ps1, setup-stage1.ps1
-│   └── sql/                             # PostgreSQL 16 partitioned schema & test seeds
-├── scripts/                             # Windows & Android deployment scripts
-│   ├── setup-windows.ps1                # PowerShell 7 automated setup
-│   ├── setup-windows.bat                # Windows 1-click launcher
-│   ├── build-apk.bat                    # Windows 1-click Android APK build
-│   └── build-apk.sh                     # Linux/macOS Android APK build
-├── icons/                               # PWA app icons (192x192, 512x512, maskable)
-├── manifest.json                        # W3C Web App Manifest for Android & Windows PWA
-├── docker-compose.yml                   # Production FreeRADIUS + PostgreSQL 16 + Redis 7 stack
-├── gradlew & gradlew.bat                # Gradle 9.3.1 build wrapper
-├── metadata.json                        # AI Studio project platform identity
-├── .env.example                         # Environment secrets template (Gemini API key)
-├── INSTALL_WINDOWS.md                   # Dedicated Windows 10/11 installation guide
-├── INSTALL_ANDROID.md                   # Dedicated Android device installation guide
-└── README.md                            # Main project documentation
+â”œâ”€â”€ app/                                 # Android Application Module (Kotlin + Jetpack Compose)
+â”‚   â”œâ”€â”€ src/main/java/com/example/
+â”‚   â”‚   â”œâ”€â”€ MainActivity.kt              # App entry point with edge-to-edge Compose UI
+â”‚   â”‚   â”œâ”€â”€ data/model/                  # Subscriber, RadAcct, Stage models
+â”‚   â”‚   â”œâ”€â”€ data/repository/             # ProductionArtifactsRepository (5 Stages)
+â”‚   â”‚   â”œâ”€â”€ ui/screens/                  # StageMatrix, Tools, SubscriberConsole, AI Architect
+â”‚   â”‚   â””â”€â”€ viewmodel/                   # IspArchitectViewModel (Simulators & State)
+â”‚   â””â”€â”€ build.gradle.kts                 # Android Gradle dependencies & SDK config
+â”œâ”€â”€ stage1/                              # Stage 1 Docker & FreeRADIUS configuration
+â”‚   â”œâ”€â”€ freeradius/                      # radiusd.conf, clients.conf, rlm_sql config
+â”‚   â”œâ”€â”€ scripts/                         # verify-radtest.ps1, setup-stage1.ps1
+â”‚   â””â”€â”€ sql/                             # PostgreSQL 16 partitioned schema & test seeds
+â”œâ”€â”€ scripts/                             # Windows & Android deployment scripts
+â”‚   â”œâ”€â”€ setup-windows.ps1                # PowerShell 7 automated setup
+â”‚   â”œâ”€â”€ setup-windows.bat                # Windows 1-click launcher
+â”‚   â”œâ”€â”€ build-apk.bat                    # Windows 1-click Android APK build
+â”‚   â””â”€â”€ build-apk.sh                     # Linux/macOS Android APK build
+â”œâ”€â”€ icons/                               # PWA app icons (192x192, 512x512, maskable)
+â”œâ”€â”€ manifest.json                        # W3C Web App Manifest for Android & Windows PWA
+â”œâ”€â”€ docker-compose.yml                   # Production FreeRADIUS + PostgreSQL 16 + Redis 7 stack
+â”œâ”€â”€ gradlew & gradlew.bat                # Gradle 9.3.1 build wrapper
+â”œâ”€â”€ metadata.json                        # AI Studio project platform identity
+â”œâ”€â”€ .env.example                         # Environment secrets template (Gemini API key)
+â”œâ”€â”€ INSTALL_WINDOWS.md                   # Dedicated Windows 10/11 installation guide
+â”œâ”€â”€ INSTALL_ANDROID.md                   # Dedicated Android device installation guide
+â””â”€â”€ README.md                            # Main project documentation
 ```
 
 ---
@@ -332,3 +332,4 @@ git push -u origin main
 - **Methodology:** Code-First, Hardware-Later BSS/OSS Telecom Architecture
 
 For issues, Mikrotik routing questions, or production deployment consulting, feel free to open an issue or reach out via email.
+

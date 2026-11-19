@@ -7,3 +7,5 @@ local.properties
 /storage/*.key
 *.log
 .DS_Store
+
+infra/.env
