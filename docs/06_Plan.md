@@ -21,3 +21,16 @@
 - [ ] **Stage 11**: Cloud Staging (Google Cloud Platform / AWS Free Tier) — **DEFERRED (Using Local Docker + On-Prem Path)**
   - Note: `infra/cloudbuild.yaml`, `setup_gcp_secret_manager.ps1`, `deploy_stage11_gcp.ps1`, and `infra/aws/` scripts are kept intact for future cloud adoption.
 - [x] **Stage 12**: On-Prem High Availability, Observability & Cutover Preparation — **VERIFIED / READY**
+
+---
+
+## Senior Platform Engineer Phased Conversion Tracker
+
+- [x] **Phase 0: Audit & Secrets Inventory** — Comprehensive code-vs-simulation audit, 17-item risk catalog (`phase_0_audit_report.md`)
+- [x] **Phase 1: Secrets & Security Hardening** — Docker secrets, HMAC-SHA256, 300s window & SETNX nonce replay protection (`80f8baf`)
+- [x] **Phase 2: High Availability & Clustering** — Citus PostgreSQL sharding, Redis Sentinel, dual FreeRADIUS, encrypted S3 backups (`60a2c20`)
+- [x] **Phase 3: Billing Correctness & Compliance** — Double-entry general ledger, append-only trigger audit, NBR 5% Mushak-6.3, BTRC 730d reports (`e3263c7`)
+- [x] **Phase 4: Observability & SLA Tracking** — Prometheus SLA metrics, alert rules (<10ms AAA, <500ms CoA, <3s unblock), Grafana NOC (`29284ab`)
+- [x] **Phase 5: CI/CD & Testing Automation** — GitHub Actions CI/CD workflow, Laravel Pint, PHPStan L8, Trivy & Gitleaks (`25bdaf3`)
+- [x] **Phase 6: Multi-Tenancy & Carrier RBAC** — Reseller data partitioning, Eloquent TenantScope, 5-tier RBAC boundaries, IDOR 403 defenses (`4607d09`)
+- [x] **Phase 7: Production Cutover & Operator Handover** — 11-gate master readiness suite, RouterOS v7 pilot runner, production operator runbook (`docs/PRODUCTION_OPERATOR_RUNBOOK.md`)

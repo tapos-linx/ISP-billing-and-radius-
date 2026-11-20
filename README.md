@@ -98,6 +98,21 @@
 
 ---
 
+### Senior Platform Engineer Phased Conversion Roadmap (Phases 0–7)
+
+| Phase | Title & Scope | Architecture & Key Deliverables | Status | Verification Evidence |
+| :---: | :--- | :--- | :---: | :--- |
+| **0** | **Audit & Secrets Inventory** | Prototype vs. real logic inventory, 17-item credential risk audit | **VERIFIED** | `phase_0_audit_report.md` |
+| **1** | **Secrets & Security Hardening** | Docker secrets, HMAC-SHA256, 300s window & SETNX nonce replay protection | **VERIFIED** | Commit `80f8baf` (100% test pass) |
+| **2** | **High Availability & Clustering** | Citus PG16 sharding, Redis Sentinel, dual FreeRADIUS, encrypted S3 backups | **VERIFIED** | Commit `60a2c20` (5/5 HA gates pass) |
+| **3** | **Billing Correctness & Compliance** | Double-entry general ledger, append-only trigger audit, NBR 5% VAT & BTRC | **VERIFIED** | Commit `e3263c7` (Variance: BDT 0.00) |
+| **4** | **Observability & SLA Tracking** | Prometheus metrics (/api/v1/metrics), SLA alerts (<10ms AAA, <500ms CoA, <3s unblock), Grafana NOC | **VERIFIED** | Commit `29284ab` (7/7 SLA gates pass) |
+| **5** | **CI/CD & Testing Automation** | GitHub Actions CI/CD workflow, Laravel Pint, PHPStan Level 8, Trivy & Gitleaks | **VERIFIED** | Commit `25bdaf3` (All CI gates pass) |
+| **6** | **Multi-Tenancy & Carrier RBAC** | Reseller data partitioning, Eloquent TenantScope, 5-tier RBAC boundaries, IDOR 403 defenses | **VERIFIED** | Commit `4607d09` (36/36 PHPUnit, 7/7 gates) |
+| **7** | **Production Cutover & Operator Handover** | 11-gate master readiness suite, RouterOS v7 pilot runner, production operator runbook | **VERIFIED / READY** | `scripts/test_phase7_production_readiness.py` (11/11 gates pass) |
+
+---
+
 ## Installing & Running on Android
 
 ### Method 1: Direct APK Installation (Recommended)
