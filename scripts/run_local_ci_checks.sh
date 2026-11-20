@@ -86,10 +86,15 @@ python3 scripts/test_multitenancy_isolation.py
 log_pass "Automated E2E MFS settlement, Observability SLA, and Multi-Tenancy verification passed."
 
 # Gate 8: Phase 7 Master Production Readiness & SLA Verification Suite
-log_step "8/8" "Running Phase 7 Master Production Readiness Suite (11 Gates)..."
+log_step "8/9" "Running Phase 7 Master Production Readiness Suite (11 Gates)..."
 python3 scripts/test_phase7_production_readiness.py
 log_pass "Phase 7 Master Production Readiness Suite passed (11/11 gates verified)."
 
+# Gate 9: Phase 8 High-Concurrency Reconnect Storm & Capacity Verification Suite
+log_step "9/9" "Running Phase 8 High-Concurrency Reconnect Storm Suite (8 Gates)..."
+python3 scripts/test_phase8_concurrency_and_storm.py
+log_pass "Phase 8 Reconnect Storm & Capacity Verification passed (8/8 gates verified)."
+
 echo -e "\n${GREEN}===========================================================================${NC}"
-echo -e "${GREEN}   CARRIER CI/CD & PRODUCTION READINESS PIPELINE: 100% PASS (8/8 GATES)${NC}"
+echo -e "${GREEN}   CARRIER CI/CD & PRODUCTION BENCHMARK PIPELINE: 100% PASS (9/9 GATES)${NC}"
 echo -e "${GREEN}===========================================================================${NC}\n"

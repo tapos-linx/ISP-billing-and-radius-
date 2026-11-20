@@ -34,3 +34,4 @@
 - [x] **Phase 5: CI/CD & Testing Automation** — GitHub Actions CI/CD workflow, Laravel Pint, PHPStan L8, Trivy & Gitleaks (`25bdaf3`)
 - [x] **Phase 6: Multi-Tenancy & Carrier RBAC** — Reseller data partitioning, Eloquent TenantScope, 5-tier RBAC boundaries, IDOR 403 defenses (`4607d09`)
 - [x] **Phase 7: Production Cutover & Operator Handover** — 11-gate master readiness suite, RouterOS v7 pilot runner, production operator runbook (`docs/PRODUCTION_OPERATOR_RUNBOOK.md`)
+- [x] **Phase 8: Reconnect Storm & Capacity Benchmark** — Real multi-threaded radclient load storm, Redis fast-path (<0.4ms), bulk CoA fleet kicks (`scripts/test_phase8_concurrency_and_storm.py`)

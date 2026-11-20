@@ -98,7 +98,7 @@
 
 ---
 
-### Senior Platform Engineer Phased Conversion Roadmap (Phases 0–7)
+### Senior Platform Engineer Phased Conversion Roadmap (Phases 0–8)
 
 | Phase | Title & Scope | Architecture & Key Deliverables | Status | Verification Evidence |
 | :---: | :--- | :--- | :---: | :--- |
@@ -109,7 +109,8 @@
 | **4** | **Observability & SLA Tracking** | Prometheus metrics (/api/v1/metrics), SLA alerts (<10ms AAA, <500ms CoA, <3s unblock), Grafana NOC | **VERIFIED** | Commit `29284ab` (7/7 SLA gates pass) |
 | **5** | **CI/CD & Testing Automation** | GitHub Actions CI/CD workflow, Laravel Pint, PHPStan Level 8, Trivy & Gitleaks | **VERIFIED** | Commit `25bdaf3` (All CI gates pass) |
 | **6** | **Multi-Tenancy & Carrier RBAC** | Reseller data partitioning, Eloquent TenantScope, 5-tier RBAC boundaries, IDOR 403 defenses | **VERIFIED** | Commit `4607d09` (36/36 PHPUnit, 7/7 gates) |
-| **7** | **Production Cutover & Operator Handover** | 11-gate master readiness suite, RouterOS v7 pilot runner, production operator runbook | **VERIFIED / READY** | `scripts/test_phase7_production_readiness.py` (11/11 gates pass) |
+| **7** | **Production Cutover & Operator Handover** | 11-gate master readiness suite, RouterOS v7 pilot runner, production operator runbook | **VERIFIED** | Commit `66b01b1` (11/11 gates pass) |
+| **8** | **Reconnect Storm & Capacity Benchmark** | Real high-concurrency radclient load storm, Redis fast-path (<0.4ms), bulk CoA fleet kicks | **VERIFIED / READY** | `scripts/test_phase8_concurrency_and_storm.py` (8/8 gates pass) |
 
 ---
 

@@ -54,10 +54,15 @@ python scripts/test_multitenancy_isolation.py
 Write-Host "  [PASS] Automated E2E MFS, Observability SLA, and Multi-Tenancy verification passed." -ForegroundColor Green
 
 # Gate 8: Phase 7 Master Production Readiness & SLA Verification Suite
-Write-Host "`n[8/8] Running Phase 7 Master Production Readiness Suite (11 Gates)..." -ForegroundColor Cyan
+Write-Host "`n[8/9] Running Phase 7 Master Production Readiness Suite (11 Gates)..." -ForegroundColor Cyan
 python scripts/test_phase7_production_readiness.py
 Write-Host "  [PASS] Phase 7 Master Production Readiness Suite passed (11/11 gates verified)." -ForegroundColor Green
 
+# Gate 9: Phase 8 High-Concurrency Reconnect Storm & Capacity Verification Suite
+Write-Host "`n[9/9] Running Phase 8 High-Concurrency Reconnect Storm Suite (8 Gates)..." -ForegroundColor Cyan
+python scripts/test_phase8_concurrency_and_storm.py
+Write-Host "  [PASS] Phase 8 Reconnect Storm & Capacity Verification passed (8/8 gates verified)." -ForegroundColor Green
+
 Write-Host "`n===========================================================================" -ForegroundColor Green
-Write-Host "   CARRIER CI/CD & PRODUCTION READINESS PIPELINE: 100% PASS (8/8 GATES)" -ForegroundColor Green
+Write-Host "   CARRIER CI/CD & PRODUCTION BENCHMARK PIPELINE: 100% PASS (9/9 GATES)" -ForegroundColor Green
 Write-Host "===========================================================================`n" -ForegroundColor Green
