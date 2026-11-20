@@ -44,13 +44,13 @@ class ProbeAaaLatencyCommand extends Command
             $this->seedProbeSubscriber($username, $password);
         }
 
-        $this->info("===========================================================================");
-        $this->info("   SYNTHETIC RADIUS AAA SLA LATENCY PROBE (< 10ms SLA TARGET)");
-        $this->info("===========================================================================");
+        $this->info('===========================================================================');
+        $this->info('   SYNTHETIC RADIUS AAA SLA LATENCY PROBE (< 10ms SLA TARGET)');
+        $this->info('===========================================================================');
         $this->line(" Target Server : {$host}:{$port}/udp");
         $this->line(" Probe User    : {$username}");
         $this->line(" Iterations    : {$iterations}");
-        $this->line("---------------------------------------------------------------------------");
+        $this->line('---------------------------------------------------------------------------');
 
         $totalLatency = 0.0;
         $successCount = 0;
@@ -66,17 +66,17 @@ class ProbeAaaLatencyCommand extends Command
 
             $latencyMs = round($duration * 1000, 2);
             $slaStatus = ($latencyMs <= 10.0)
-                ? "<fg=green;options=bold>[PASS: <10ms SLA]</>"
-                : "<fg=red;options=bold>[BREACH: >10ms SLA]</>";
+                ? '<fg=green;options=bold>[PASS: <10ms SLA]</>'
+                : '<fg=red;options=bold>[BREACH: >10ms SLA]</>';
 
             if ($accepted) {
                 $successCount++;
                 if ($latencyMs > 10.0) {
                     $slaBreachCount++;
                 }
-                $this->line(sprintf(" [%02d/%02d] Access-Accept | Latency: %6.2f ms | Status: %s", $i, $iterations, $latencyMs, $slaStatus));
+                $this->line(sprintf(' [%02d/%02d] Access-Accept | Latency: %6.2f ms | Status: %s', $i, $iterations, $latencyMs, $slaStatus));
             } else {
-                $this->line(sprintf(" [%02d/%02d] Access-Reject/Timeout | Latency: %6.2f ms | Status: <fg=yellow>FAILED</>", $i, $iterations, $latencyMs));
+                $this->line(sprintf(' [%02d/%02d] Access-Reject/Timeout | Latency: %6.2f ms | Status: <fg=yellow>FAILED</>', $i, $iterations, $latencyMs));
             }
 
             if ($i < $iterations && $interval > 0) {
@@ -85,8 +85,8 @@ class ProbeAaaLatencyCommand extends Command
         }
 
         $avgLatencyMs = ($iterations > 0) ? round(($totalLatency / $iterations) * 1000, 2) : 0.0;
-        $this->info("---------------------------------------------------------------------------");
-        $this->info(sprintf(" SUMMARY: %d/%d Accepted | Avg Latency: %.2f ms | SLA Breaches: %d", $successCount, $iterations, $avgLatencyMs, $slaBreachCount));
+        $this->info('---------------------------------------------------------------------------');
+        $this->info(sprintf(' SUMMARY: %d/%d Accepted | Avg Latency: %.2f ms | SLA Breaches: %d', $successCount, $iterations, $avgLatencyMs, $slaBreachCount));
 
         return $successCount > 0 ? self::SUCCESS : self::FAILURE;
     }
@@ -137,15 +137,15 @@ class ProbeAaaLatencyCommand extends Command
             } else {
                 DB::table('radcheck')->insert([
                     'subscriber_id' => (string) Str::uuid(),
-                    'username'      => $username,
-                    'attribute'     => 'Cleartext-Password',
-                    'op'            => ':=',
-                    'value'         => $password,
+                    'username' => $username,
+                    'attribute' => 'Cleartext-Password',
+                    'op' => ':=',
+                    'value' => $password,
                 ]);
             }
-            $this->comment(" [SETUP] Verified synthetic test subscriber in radcheck table.");
+            $this->comment(' [SETUP] Verified synthetic test subscriber in radcheck table.');
         } catch (Throwable $e) {
-            $this->warn(" [SETUP] Notice: could not seed probe user directly: " . $e->getMessage());
+            $this->warn(' [SETUP] Notice: could not seed probe user directly: '.$e->getMessage());
         }
     }
 
@@ -162,6 +162,7 @@ class ProbeAaaLatencyCommand extends Command
                 return $sec;
             }
         }
+
         return env('RADIUS_SECRET', 'secure_radius_secret_key_2026');
     }
 }

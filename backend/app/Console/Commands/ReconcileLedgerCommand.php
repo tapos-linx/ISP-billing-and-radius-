@@ -15,7 +15,7 @@ class ReconcileLedgerCommand extends Command
 
     public function handle(DoubleEntryLedgerService $ledgerService): int
     {
-        $this->info("Starting Double-Entry Ledger Reconciliation Audit...");
+        $this->info('Starting Double-Entry Ledger Reconciliation Audit...');
 
         $report = $ledgerService->reconcileLedger();
 
@@ -27,22 +27,24 @@ class ReconcileLedgerCommand extends Command
                     $acc->name,
                     $acc->type,
                     $acc->normal_balance,
-                    number_format((float)$acc->total_debit, 2),
-                    number_format((float)$acc->total_credit, 2),
+                    number_format((float) $acc->total_debit, 2),
+                    number_format((float) $acc->total_credit, 2),
                 ];
             }, $report['trial_balance'])
         );
 
-        $this->line("");
-        $this->line("Total Global Debits:  BDT " . number_format($report['total_debit_bdt'], 2));
-        $this->line("Total Global Credits: BDT " . number_format($report['total_credit_bdt'], 2));
+        $this->line('');
+        $this->line('Total Global Debits:  BDT '.number_format($report['total_debit_bdt'], 2));
+        $this->line('Total Global Credits: BDT '.number_format($report['total_credit_bdt'], 2));
 
         if ($report['is_balanced']) {
-            $this->info("[PASS] Double-entry ledger is perfectly balanced (Debits == Credits).");
+            $this->info('[PASS] Double-entry ledger is perfectly balanced (Debits == Credits).');
+
             return Command::SUCCESS;
         }
 
         $this->error("[FAIL] Ledger imbalance detected! ({$report['imbalanced_count']} imbalanced journals)");
+
         return Command::FAILURE;
     }
 }

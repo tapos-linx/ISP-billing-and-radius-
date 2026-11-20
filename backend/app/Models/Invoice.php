@@ -13,9 +13,13 @@ class Invoice extends Model
     use HasUuids;
 
     protected $table = 'invoices';
+
     protected $primaryKey = 'invoice_id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -36,14 +40,14 @@ class Invoice extends Model
     ];
 
     protected $casts = [
-        'amount_bdt'        => 'float',
-        'subtotal_bdt'      => 'float',
-        'vat_rate_percent'  => 'float',
-        'vat_amount_bdt'    => 'float',
-        'total_bdt'         => 'float',
-        'due_date'          => 'datetime',
-        'paid_at'           => 'datetime',
-        'created_at'        => 'datetime',
+        'amount_bdt' => 'float',
+        'subtotal_bdt' => 'float',
+        'vat_rate_percent' => 'float',
+        'vat_amount_bdt' => 'float',
+        'total_bdt' => 'float',
+        'due_date' => 'datetime',
+        'paid_at' => 'datetime',
+        'created_at' => 'datetime',
     ];
 
     public function payments(): HasMany

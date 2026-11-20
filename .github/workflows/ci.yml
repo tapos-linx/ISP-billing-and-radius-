@@ -1,25 +1,220 @@
-name: ISP Billing & FreeRADIUS CI
+name: Carrier BSS/OSS Production CI/CD Pipeline
 
 on:
-  pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches: [main, master, 'release/**']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint-and-test:
+  # ====================================================================
+  # 1. Secret Scanning (Gitleaks)
+  # ====================================================================
+  secret-scan:
+    name: Secret & Credential Scanning
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Detector
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ====================================================================
+  # 2. Linting & Static Analysis (Pint & PHPStan Level 8)
+  # ====================================================================
+  lint-and-static-analysis:
+    name: Code Quality & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
       - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-      - name: PHP Syntax Lint
-        run: find stage3 stage4 database tests -name '*.php' -exec php -l {} +
-      - name: Shell Script Syntax Check
-        run: bash -n infra/ha/pgbackrest_backup_restore_drill.sh
-      - name: Validate Docker Compose & Monitoring Config
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql, pgsql, redis, bcmath
+          tools: composer:v2, pint, phpstan
+
+      - name: PHP Syntax Check (All Files)
         run: |
+          find backend/app backend/routes backend/tests backend/config -name '*.php' -exec php -l {} \;
+
+      - name: Shell Script Syntax Validation
+        run: |
+          find scripts stage1 -name '*.sh' -exec bash -n {} +
+
+      - name: Validate Docker Compose Configurations
+        run: |
+          docker compose -f docker-compose.yml config --quiet
           docker compose -f infra/docker-compose.yml config --quiet
           docker compose -f infra/monitoring/docker-compose.monitoring.yml config --quiet
+
+      - name: Install Composer Dependencies
+        working-directory: backend
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Laravel Pint Code Style Inspection
+        working-directory: backend
+        run: vendor/bin/pint --test
+
+      - name: PHPStan Static Analysis (Level 8)
+        working-directory: backend
+        run: vendor/bin/phpstan analyse --configuration=phpstan.neon --level=8
+
+  # ====================================================================
+  # 3. Unit & Feature Tests with Code Coverage (>= 80% Threshold)
+  # ====================================================================
+  unit-and-feature-tests:
+    name: PHPUnit & Feature Tests (>=80% Coverage)
+    runs-on: ubuntu-latest
+    needs: [lint-and-static-analysis]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: isp_bss_oss
+          POSTGRES_USER: isp_admin
+          POSTGRES_PASSWORD: secure_isp_password_2026
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3 with PCOV
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql, pgsql, redis, bcmath
+          coverage: pcov
+          tools: composer:v2
+
+      - name: Install Dependencies
+        working-directory: backend
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Initialize Database Schema & Seeders
+        env:
+          PGPASSWORD: secure_isp_password_2026
+        run: |
+          psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/01-init-schema.sql
+          psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/02-seed-test-data.sql
+          psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/03-partition-maintenance.sql
+          psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/04-billing-compliance-ledger.sql
+
+      - name: Run PHPUnit Test Suite with Coverage Threshold
+        working-directory: backend
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: isp_bss_oss
+          DB_USERNAME: isp_admin
+          DB_PASSWORD: secure_isp_password_2026
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          REDIS_PASSWORD: ""
+        run: |
+          vendor/bin/phpunit --coverage-text --min=80
+
+  # ====================================================================
+  # 4. Container Vulnerability Scanning (Trivy)
+  # ====================================================================
+  container-vulnerability-scan:
+    name: Container Vulnerability Scan (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Run Trivy FileSystem Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+  # ====================================================================
+  # 5. End-to-End Docker Compose Integration Test
+  # ====================================================================
+  e2e-integration-test:
+    name: End-to-End Docker Compose Integration
+    runs-on: ubuntu-latest
+    needs: [unit-and-feature-tests]
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate Local Docker Secrets
+        run: |
+          mkdir -p secrets
+          echo "secure_isp_password_2026" > secrets/db_password.txt
+          echo "SecretRedisToken2026!" > secrets/redis_password.txt
+          echo "secure_radius_secret_key_2026" > secrets/radius_secret.txt
+          echo "sandbox_bkash_secret_2026" > secrets/bkash_secret.txt
+          echo "sandbox_nagad_secret_2026" > secrets/nagad_secret.txt
+
+      - name: Spin Up Docker Compose Infrastructure
+        run: |
+          docker compose -f infra/docker-compose.yml up -d
+          docker compose -f infra/monitoring/docker-compose.monitoring.yml up -d prometheus grafana loki promtail
+
+      - name: Wait for Stack Health
+        run: |
+          echo "Waiting for PostgreSQL/Citus, Redis, FreeRADIUS, and Laravel BSS..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:8000/api/v1/health | grep -q '"status":"ok"'; then
+              echo "Laravel BSS is UP and healthy!"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Execute End-to-End MFS Settlement & CoA Test (8/8 Gates)
+        run: |
+          python3 scripts/test_e2e_mfs_settlement.py
+
+      - name: Execute Observability & Carrier SLA Verification (7/7 Gates)
+        run: |
+          python3 scripts/test_observability_and_sla.py
+
+      - name: Tear Down Docker Compose Stack
+        if: always()
+        run: |
+          docker compose -f infra/monitoring/docker-compose.monitoring.yml down -v --remove-orphans || true
+          docker compose -f infra/docker-compose.yml down -v --remove-orphans || true

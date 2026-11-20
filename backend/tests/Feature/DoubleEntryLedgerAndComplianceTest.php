@@ -16,7 +16,9 @@ use Tests\TestCase;
 class DoubleEntryLedgerAndComplianceTest extends TestCase
 {
     private DoubleEntryLedgerService $ledgerService;
+
     private BillingAuditService $auditService;
+
     private ComplianceReportingService $complianceService;
 
     protected function setUp(): void
@@ -33,16 +35,16 @@ class DoubleEntryLedgerAndComplianceTest extends TestCase
         $invId = (string) Str::uuid();
 
         $invoice = Invoice::create([
-            'invoice_id'        => $invId,
-            'subscriber_id'     => $subId,
-            'tenant_id'         => 1,
-            'amount_bdt'        => 1050.00,
-            'subtotal_bdt'      => 1000.00,
-            'vat_rate_percent'  => 5.00,
-            'vat_amount_bdt'    => 50.00,
-            'total_bdt'         => 1050.00,
-            'status'            => 'unpaid',
-            'due_date'          => now()->addDays(7),
+            'invoice_id' => $invId,
+            'subscriber_id' => $subId,
+            'tenant_id' => 1,
+            'amount_bdt' => 1050.00,
+            'subtotal_bdt' => 1000.00,
+            'vat_rate_percent' => 5.00,
+            'vat_amount_bdt' => 50.00,
+            'total_bdt' => 1050.00,
+            'status' => 'unpaid',
+            'due_date' => now()->addDays(7),
             'mushak_6_3_number' => 'MUSHAK-TEST-001',
         ]);
 
@@ -69,29 +71,29 @@ class DoubleEntryLedgerAndComplianceTest extends TestCase
         $payId = (string) Str::uuid();
 
         $invoice = Invoice::create([
-            'invoice_id'        => $invId,
-            'subscriber_id'     => $subId,
-            'tenant_id'         => 1,
-            'amount_bdt'        => 1050.00,
-            'subtotal_bdt'      => 1000.00,
-            'vat_rate_percent'  => 5.00,
-            'vat_amount_bdt'    => 50.00,
-            'total_bdt'         => 1050.00,
-            'status'            => 'unpaid',
-            'due_date'          => now()->addDays(7),
+            'invoice_id' => $invId,
+            'subscriber_id' => $subId,
+            'tenant_id' => 1,
+            'amount_bdt' => 1050.00,
+            'subtotal_bdt' => 1000.00,
+            'vat_rate_percent' => 5.00,
+            'vat_amount_bdt' => 50.00,
+            'total_bdt' => 1050.00,
+            'status' => 'unpaid',
+            'due_date' => now()->addDays(7),
             'mushak_6_3_number' => 'MUSHAK-TEST-002',
         ]);
 
         $payment = Payment::create([
-            'payment_id'    => $payId,
-            'invoice_id'    => $invId,
+            'payment_id' => $payId,
+            'invoice_id' => $invId,
             'subscriber_id' => $subId,
-            'tenant_id'     => 1,
-            'amount_bdt'    => 1050.00,
-            'gateway'       => 'bkash',
-            'trx_id'        => 'TRX_TEST_' . bin2hex(random_bytes(4)),
-            'status'        => 'completed',
-            'paid_at'       => now(),
+            'tenant_id' => 1,
+            'amount_bdt' => 1050.00,
+            'gateway' => 'bkash',
+            'trx_id' => 'TRX_TEST_'.bin2hex(random_bytes(4)),
+            'status' => 'completed',
+            'paid_at' => now(),
         ]);
 
         $journalId = $this->ledgerService->recordPaymentSettlement($invoice, $payment);
@@ -147,7 +149,7 @@ class DoubleEntryLedgerAndComplianceTest extends TestCase
             $updateFailed = true;
             $this->assertStringContainsString('append-only', $e->getMessage());
         }
-        $this->assertTrue($updateFailed, "Expected immutable audit log update to be blocked by database trigger.");
+        $this->assertTrue($updateFailed, 'Expected immutable audit log update to be blocked by database trigger.');
 
         // Attempting a DELETE must fail with SQL trigger exception
         $deleteFailed = false;
@@ -157,7 +159,7 @@ class DoubleEntryLedgerAndComplianceTest extends TestCase
             $deleteFailed = true;
             $this->assertStringContainsString('append-only', $e->getMessage());
         }
-        $this->assertTrue($deleteFailed, "Expected immutable audit log deletion to be blocked by database trigger.");
+        $this->assertTrue($deleteFailed, 'Expected immutable audit log deletion to be blocked by database trigger.');
     }
 
     public function test_compliance_service_generates_vat_and_btrc_reports(): void

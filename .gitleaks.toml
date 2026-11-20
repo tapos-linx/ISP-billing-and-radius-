@@ -1,0 +1,23 @@
+# Gitleaks Configuration for Carrier BSS/OSS
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic test credentials and non-production lab secrets"
+paths = [
+    '''backend/tests/.*''',
+    '''\.env\.example''',
+    '''README-SECRETS\.md''',
+    '''scripts/test_.*\.py''',
+    '''stage1/sql/02-seed-test-data\.sql'''
+]
+regexes = [
+    '''(?i)sandbox_[a-z0-9_]+_secret''',
+    '''(?i)E2eLivePass@2026''',
+    '''(?i)Tapos@2026''',
+    '''(?i)Pass@2026''',
+    '''(?i)changeme_in_env''',
+    '''(?i)secure_radius_secret_key_2026''',
+    '''(?i)secure_isp_password_2026''',
+    '''(?i)SecretRedisToken2026!'''
+]

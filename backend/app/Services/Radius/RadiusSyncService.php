@@ -17,7 +17,9 @@ use Throwable;
 final class RadiusSyncService
 {
     private const CACHE_TTL_SECONDS = 300;
+
     private const WALLED_GARDEN_POOL = 'walled_garden_pool';
+
     private const ACTIVE_POOL = 'pppoe_active_pool';
 
     /**
@@ -54,10 +56,10 @@ final class RadiusSyncService
             if ($updatedPwd === 0) {
                 DB::table('radcheck')->insert([
                     'subscriber_id' => $subId,
-                    'username'      => $username,
-                    'attribute'     => 'Cleartext-Password',
-                    'op'            => ':=',
-                    'value'         => $subscriber['password'],
+                    'username' => $username,
+                    'attribute' => 'Cleartext-Password',
+                    'op' => ':=',
+                    'value' => $subscriber['password'],
                 ]);
             }
 
@@ -71,10 +73,10 @@ final class RadiusSyncService
             if ($updatedRate === 0) {
                 DB::table('radreply')->insert([
                     'subscriber_id' => $subId,
-                    'username'      => $username,
-                    'attribute'     => 'Mikrotik-Rate-Limit',
-                    'op'            => ':=',
-                    'value'         => $subscriber['rate_limit'],
+                    'username' => $username,
+                    'attribute' => 'Mikrotik-Rate-Limit',
+                    'op' => ':=',
+                    'value' => $subscriber['rate_limit'],
                 ]);
             }
 
@@ -88,10 +90,10 @@ final class RadiusSyncService
             if ($updatedPool === 0) {
                 DB::table('radreply')->insert([
                     'subscriber_id' => $subId,
-                    'username'      => $username,
-                    'attribute'     => 'Framed-Pool',
-                    'op'            => ':=',
-                    'value'         => $targetPool,
+                    'username' => $username,
+                    'attribute' => 'Framed-Pool',
+                    'op' => ':=',
+                    'value' => $targetPool,
                 ]);
             }
         });
@@ -108,9 +110,9 @@ final class RadiusSyncService
     ): void {
         try {
             $payload = json_encode([
-                'password'            => $password,
+                'password' => $password,
                 'Mikrotik-Rate-Limit' => $rateLimit,
-                'Framed-Pool'         => $framedPool,
+                'Framed-Pool' => $framedPool,
                 'Acct-Interim-Interval' => 300,
             ], JSON_THROW_ON_ERROR);
 
@@ -119,7 +121,7 @@ final class RadiusSyncService
             // Log warning; FreeRADIUS falls back to rlm_sql (<10ms) if Redis is warming
             logger()->warning('Redis Fast-Path cache refresh failed', [
                 'username' => $username,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }

@@ -10,6 +10,7 @@ $resolveSecret = static function (string $name, ?string $envVal = null): ?string
             return $val;
         }
     }
+
     return $envVal;
 };
 
@@ -38,12 +39,12 @@ return [
 
     'bkash' => [
         'webhook_secret' => $resolveSecret('bkash_secret', env('BKASH_WEBHOOK_SECRET', env('BKASH_APP_SECRET'))),
-        'app_secret'     => $resolveSecret('bkash_secret', env('BKASH_APP_SECRET')),
+        'app_secret' => $resolveSecret('bkash_secret', env('BKASH_APP_SECRET')),
     ],
 
     'nagad' => [
         'webhook_secret' => $resolveSecret('nagad_secret', env('NAGAD_WEBHOOK_SECRET', env('NAGAD_MERCHANT_KEY'))),
-        'merchant_key'   => $resolveSecret('nagad_secret', env('NAGAD_MERCHANT_KEY')),
+        'merchant_key' => $resolveSecret('nagad_secret', env('NAGAD_MERCHANT_KEY')),
     ],
 
 ];

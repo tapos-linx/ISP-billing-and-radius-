@@ -55,8 +55,25 @@ def run_cmd(cmd: list[str]) -> str:
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return res.stdout + res.stderr
 
+def get_db_container() -> str:
+    for name in ["citus_master", "isp_postgres_primary", "isp_postgres"]:
+        res = subprocess.run(["docker", "ps", "-q", "-f", f"name={name}"], capture_output=True, text=True)
+        if res.stdout.strip():
+            return name
+    return "citus_master"
+
+def get_radius_container() -> str:
+    for name in ["freeradius_aaa", "isp_freeradius_1", "isp_freeradius", "freeradius"]:
+        res = subprocess.run(["docker", "ps", "-q", "-f", f"name={name}"], capture_output=True, text=True)
+        if res.stdout.strip():
+            return name
+    return "freeradius_aaa"
+
 def run_sql(sql: str) -> str:
-    cmd = ["docker", "exec", "citus_master", "psql", "-U", "isp_admin", "-d", "isp_bss_oss", "-q", "-t", "-c", sql]
+    db_cont = get_db_container()
+    db_user = "isp_admin" if "citus" in db_cont else "radius_user"
+    db_name = "isp_bss_oss" if "citus" in db_cont else "isp_billing"
+    cmd = ["docker", "exec", db_cont, "psql", "-U", db_user, "-d", db_name, "-q", "-t", "-c", sql]
     return run_cmd(cmd).strip()
 
 def log_step(step: str, title: str):
@@ -122,7 +139,8 @@ def main():
 
     # Step 3: Verify Pre-Payment FreeRADIUS radtest returns walled_garden_pool
     log_step("3/8", "Verifying FreeRADIUS AAA Pre-Payment Isolation...")
-    radtest_pre = run_cmd(["docker", "exec", "freeradius_aaa", "radtest", USERNAME, PASSWORD, "127.0.0.1", "0", RADIUS_SECRET])
+    rad_cont = get_radius_container()
+    radtest_pre = run_cmd(["docker", "exec", rad_cont, "radtest", USERNAME, PASSWORD, "127.0.0.1", "0", RADIUS_SECRET])
     if "Access-Accept" in radtest_pre and "walled_garden_pool" in radtest_pre and "128k/128k" in radtest_pre:
         log_pass("Pre-Payment Auth: Access-Accept with Framed-Pool=walled_garden_pool & Rate=128k/128k.")
     else:
@@ -243,7 +261,8 @@ def main():
 
     # Step 8: Verify Post-Payment FreeRADIUS radtest returns pppoe_active_pool + 20M/20M
     log_step("8/8", "Verifying FreeRADIUS AAA Post-Settlement Access-Accept...")
-    radtest_post = run_cmd(["docker", "exec", "freeradius_aaa", "radtest", USERNAME, PASSWORD, "127.0.0.1", "0", RADIUS_SECRET])
+    rad_cont = get_radius_container()
+    radtest_post = run_cmd(["docker", "exec", rad_cont, "radtest", USERNAME, PASSWORD, "127.0.0.1", "0", RADIUS_SECRET])
     if "Access-Accept" in radtest_post and "pppoe_active_pool" in radtest_post and "20M/20M" in radtest_post:
         log_pass("Post-Settlement Auth: Access-Accept with Framed-Pool=pppoe_active_pool & Rate=20M/20M!")
     else:

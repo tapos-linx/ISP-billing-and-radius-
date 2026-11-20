@@ -20,34 +20,34 @@ final class AiCopilotController extends Controller
     {
         $data = $request->validate([
             'username' => ['required', 'string', 'max:64'],
-            'symptom'  => ['required', 'string', 'max:1000'],
+            'symptom' => ['required', 'string', 'max:1000'],
         ]);
 
         $apiKey = (string) env('GEMINI_API_KEY', '');
-        $model  = (string) env('GEMINI_MODEL', env('GEMINI_FLASH_MODEL', 'gemini-3-flash-preview'));
+        $model = (string) env('GEMINI_MODEL', env('GEMINI_FLASH_MODEL', 'gemini-3-flash-preview'));
 
         if ($apiKey === '' || str_starts_with($apiKey, 'REPLACE_WITH_')) {
             return response()->json(['error' => 'GEMINI_API_KEY is not configured'], 503);
         }
 
-        $prompt = "You are a senior ISP FreeRADIUS & MikroTik RouterOS v7 NOC engineer. "
-            . "Diagnose subscriber '{$data['username']}' reporting: {$data['symptom']}. "
-            . "Provide: (1) Likely root cause, (2) Exact radtest or RouterOS CLI check, (3) Safe fix.";
+        $prompt = 'You are a senior ISP FreeRADIUS & MikroTik RouterOS v7 NOC engineer. '
+            ."Diagnose subscriber '{$data['username']}' reporting: {$data['symptom']}. "
+            .'Provide: (1) Likely root cause, (2) Exact radtest or RouterOS CLI check, (3) Safe fix.';
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
         $resp = Http::timeout(15)->post($url, [
             'contents' => [['parts' => [['text' => $prompt]]]],
         ]);
 
-        if (!$resp->successful()) {
+        if (! $resp->successful()) {
             return response()->json(['error' => 'Gemini API request failed', 'status' => $resp->status()], 502);
         }
 
         $advice = data_get($resp->json(), 'candidates.0.content.parts.0.text', 'No diagnosis returned.');
 
         return response()->json([
-            'username'  => $data['username'],
-            'model'     => $model,
+            'username' => $data['username'],
+            'model' => $model,
             'diagnosis' => $advice,
         ]);
     }

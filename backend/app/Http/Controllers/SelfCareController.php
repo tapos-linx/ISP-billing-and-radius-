@@ -22,11 +22,11 @@ class SelfCareController extends Controller
             ->where('subscriber_id', $subscriberId)
             ->first();
 
-        if (!$subscriber) {
+        if (! $subscriber) {
             $subscriber = (object) [
-                'subscriber_id'     => $subscriberId,
-                'username'          => 'tapos_test',
-                'status'            => 'active',
+                'subscriber_id' => $subscriberId,
+                'username' => 'tapos_test',
+                'status' => 'active',
                 'bandwidth_profile' => '20M/20M',
             ];
         }
@@ -36,22 +36,22 @@ class SelfCareController extends Controller
             ->orderByDesc('created_at')
             ->first();
 
-        if (!$latestInvoice) {
+        if (! $latestInvoice) {
             $subtotal = 1000.00;
             $vatRate = 5.00;
             $vatAmount = round($subtotal * ($vatRate / 100), 2);
             $total = $subtotal + $vatAmount;
 
             $latestInvoice = (object) [
-                'id'                => '22222222-2222-2222-2222-222222222222',
-                'invoice_id'        => '22222222-2222-2222-2222-222222222222',
-                'subtotal_bdt'      => $subtotal,
-                'vat_rate_percent'  => $vatRate,
-                'vat_amount_bdt'    => $vatAmount,
-                'total_bdt'         => $total,
-                'isp_bin_number'    => 'BIN-001234567-0101',
+                'id' => '22222222-2222-2222-2222-222222222222',
+                'invoice_id' => '22222222-2222-2222-2222-222222222222',
+                'subtotal_bdt' => $subtotal,
+                'vat_rate_percent' => $vatRate,
+                'vat_amount_bdt' => $vatAmount,
+                'total_bdt' => $total,
+                'isp_bin_number' => 'BIN-001234567-0101',
                 'mushak_6_3_number' => 'MUSHAK-6.3-2026-0001',
-                'status'            => 'unpaid',
+                'status' => 'unpaid',
             ];
         } else {
             $latestInvoice->id = $latestInvoice->invoice_id ?? ($latestInvoice->id ?? '22222222-2222-2222-2222-222222222222');
@@ -65,16 +65,16 @@ class SelfCareController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'subscriber'        => $subscriber,
-                'latestInvoice'     => $latestInvoice,
-                'twoFactorEnabled'  => $twoFactorEnabled,
+                'subscriber' => $subscriber,
+                'latestInvoice' => $latestInvoice,
+                'twoFactorEnabled' => $twoFactorEnabled,
             ]);
         }
 
         return Inertia::render('SelfCare/Dashboard', [
-            'subscriber'        => $subscriber,
-            'latestInvoice'     => $latestInvoice,
-            'twoFactorEnabled'  => $twoFactorEnabled,
+            'subscriber' => $subscriber,
+            'latestInvoice' => $latestInvoice,
+            'twoFactorEnabled' => $twoFactorEnabled,
         ]);
     }
 
@@ -91,10 +91,10 @@ class SelfCareController extends Controller
         $amount = $invoice ? ($invoice->total_bdt ?? $invoice->amount_bdt) : 1050.00;
 
         return response()->json([
-            'status'       => 'redirect_to_gateway',
-            'gateway'      => $gateway,
-            'invoice_id'   => $validated['invoice_id'],
-            'amount_bdt'   => (float) $amount,
+            'status' => 'redirect_to_gateway',
+            'gateway' => $gateway,
+            'invoice_id' => $validated['invoice_id'],
+            'amount_bdt' => (float) $amount,
             'checkout_url' => "https://checkout.sandbox.{$gateway}.com/pay?inv={$validated['invoice_id']}",
         ]);
     }
@@ -112,7 +112,7 @@ class SelfCareController extends Controller
         $request->session()->put('2fa_verified', true);
 
         return response()->json([
-            'status'  => 'authenticated',
+            'status' => 'authenticated',
             'message' => '2FA verification successful.',
         ]);
     }
@@ -120,11 +120,11 @@ class SelfCareController extends Controller
     public function toggleTwoFactor(Request $request): JsonResponse
     {
         $current = (bool) $request->session()->get('2fa_enabled', false);
-        $request->session()->put('2fa_enabled', !$current);
+        $request->session()->put('2fa_enabled', ! $current);
 
         return response()->json([
-            'twoFactorEnabled' => !$current,
-            'status'           => 'toggled',
+            'twoFactorEnabled' => ! $current,
+            'status' => 'toggled',
         ]);
     }
 }

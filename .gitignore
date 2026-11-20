@@ -21,4 +21,7 @@ infra/secrets/
 # Dynamic backups
 backups/
 
-
+# Laravel caches
+backend/bootstrap/cache/*.php
+!backend/bootstrap/cache/.gitignore
+.phpunit.result.cache

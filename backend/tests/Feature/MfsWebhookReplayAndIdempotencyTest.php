@@ -21,7 +21,7 @@ class MfsWebhookReplayAndIdempotencyTest extends TestCase
         $payload = ['trx_id' => 'TRX_EXP_001'];
         $res = $this->postJson('/api/v1/webhooks/bkash', $payload, [
             'X-Webhook-Timestamp' => (string) (time() - 900), // 15 min old (> 300s)
-            'X-Webhook-Nonce'     => 'nonce_1234567890abcdef',
+            'X-Webhook-Nonce' => 'nonce_1234567890abcdef',
             'X-Webhook-Signature' => hash_hmac('sha256', json_encode($payload), $this->secret),
         ]);
 
@@ -34,7 +34,7 @@ class MfsWebhookReplayAndIdempotencyTest extends TestCase
         $payload = ['trx_id' => 'TRX_DRIFT_001'];
         $res = $this->postJson('/api/v1/webhooks/bkash', $payload, [
             'X-Webhook-Timestamp' => (string) (time() + 900), // 15 min in future
-            'X-Webhook-Nonce'     => 'nonce_1234567890abcdef',
+            'X-Webhook-Nonce' => 'nonce_1234567890abcdef',
             'X-Webhook-Signature' => hash_hmac('sha256', json_encode($payload), $this->secret),
         ]);
 
@@ -46,7 +46,7 @@ class MfsWebhookReplayAndIdempotencyTest extends TestCase
         $payload = ['trx_id' => 'TRX_NONCE_001'];
         $res = $this->postJson('/api/v1/webhooks/bkash', $payload, [
             'X-Webhook-Timestamp' => (string) time(),
-            'X-Webhook-Nonce'     => 'short_123', // < 16 chars
+            'X-Webhook-Nonce' => 'short_123', // < 16 chars
             'X-Webhook-Signature' => hash_hmac('sha256', json_encode($payload), $this->secret),
         ]);
 
@@ -56,11 +56,11 @@ class MfsWebhookReplayAndIdempotencyTest extends TestCase
 
     public function test_rejects_replayed_nonce(): void
     {
-        $nonce = 'nonce_unique_replay_test_' . bin2hex(random_bytes(6));
+        $nonce = 'nonce_unique_replay_test_'.bin2hex(random_bytes(6));
         $payload = ['trx_id' => 'TRX_REPLAY_NONCE_001'];
         $headers = [
             'X-Webhook-Timestamp' => (string) time(),
-            'X-Webhook-Nonce'     => $nonce,
+            'X-Webhook-Nonce' => $nonce,
             'X-Webhook-Signature' => hash_hmac('sha256', json_encode($payload), $this->secret),
         ];
 
@@ -75,16 +75,16 @@ class MfsWebhookReplayAndIdempotencyTest extends TestCase
 
     public function test_rejects_replayed_idempotency_key(): void
     {
-        $idemKey = 'idem_key_' . bin2hex(random_bytes(8));
-        $nonce = 'nonce_idem_test_' . bin2hex(random_bytes(6));
+        $idemKey = 'idem_key_'.bin2hex(random_bytes(8));
+        $nonce = 'nonce_idem_test_'.bin2hex(random_bytes(6));
         $payload = ['trx_id' => 'TRX_IDEM_001'];
 
         Redis::set("mfs:idempotency:{$idemKey}", '1', 'EX', 600, 'NX');
 
         $res = $this->postJson('/api/v1/webhooks/bkash', $payload, [
             'X-Webhook-Timestamp' => (string) time(),
-            'X-Webhook-Nonce'     => $nonce,
-            'X-Idempotency-Key'   => $idemKey,
+            'X-Webhook-Nonce' => $nonce,
+            'X-Idempotency-Key' => $idemKey,
             'X-Webhook-Signature' => hash_hmac('sha256', json_encode($payload), $this->secret),
         ]);
 
@@ -94,17 +94,17 @@ class MfsWebhookReplayAndIdempotencyTest extends TestCase
 
     public function test_rejects_invalid_hmac_signature(): void
     {
-        $nonce = 'nonce_sig_test_' . bin2hex(random_bytes(6));
+        $nonce = 'nonce_sig_test_'.bin2hex(random_bytes(6));
         $payload = [
-            'trx_id'        => 'TRX_INVALID_SIG_001',
+            'trx_id' => 'TRX_INVALID_SIG_001',
             'subscriber_id' => '00000000-0000-0000-0000-000000000001',
-            'invoice_id'    => '00000000-0000-0000-0000-000000000002',
-            'amount_bdt'    => 1050.00,
+            'invoice_id' => '00000000-0000-0000-0000-000000000002',
+            'amount_bdt' => 1050.00,
         ];
 
         $res = $this->postJson('/api/v1/webhooks/bkash', $payload, [
             'X-Webhook-Timestamp' => (string) time(),
-            'X-Webhook-Nonce'     => $nonce,
+            'X-Webhook-Nonce' => $nonce,
             'X-Webhook-Signature' => 'invalid_forged_hmac_sha256_hash_1234567890abcdef',
         ]);
 
@@ -114,17 +114,17 @@ class MfsWebhookReplayAndIdempotencyTest extends TestCase
 
     public function test_nagad_rejects_invalid_hmac_signature(): void
     {
-        $nonce = 'nonce_nagad_test_' . bin2hex(random_bytes(6));
+        $nonce = 'nonce_nagad_test_'.bin2hex(random_bytes(6));
         $payload = [
-            'trx_id'        => 'TRX_NAGAD_INVALID_001',
+            'trx_id' => 'TRX_NAGAD_INVALID_001',
             'subscriber_id' => '00000000-0000-0000-0000-000000000001',
-            'invoice_id'    => '00000000-0000-0000-0000-000000000002',
-            'amount_bdt'    => 1050.00,
+            'invoice_id' => '00000000-0000-0000-0000-000000000002',
+            'amount_bdt' => 1050.00,
         ];
 
         $res = $this->postJson('/api/v1/webhooks/nagad', $payload, [
             'X-Webhook-Timestamp' => (string) time(),
-            'X-Webhook-Nonce'     => $nonce,
+            'X-Webhook-Nonce' => $nonce,
             'X-Webhook-Signature' => 'forged_nagad_signature_abcdef',
         ]);
 

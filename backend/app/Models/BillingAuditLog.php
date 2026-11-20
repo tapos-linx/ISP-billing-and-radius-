@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 class BillingAuditLog extends Model
 {
     protected $table = 'billing_audit_logs';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -29,7 +29,7 @@ class BillingAuditLog extends Model
 
     protected $casts = [
         'prev_state' => 'array',
-        'new_state'  => 'array',
+        'new_state' => 'array',
         'created_at' => 'datetime',
     ];
 }

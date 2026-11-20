@@ -23,12 +23,16 @@ class PrometheusMetricsService
 
     // Buckets in seconds
     public const ACCESS_ACCEPT_BUCKETS = [0.002, 0.005, 0.008, 0.010, 0.015, 0.025, 0.050, 0.100, 0.500, 1.0];
+
     public const COA_BUCKETS = [0.050, 0.100, 0.200, 0.350, 0.500, 0.750, 1.0, 2.0, 5.0];
+
     public const PAYMENT_UNBLOCK_BUCKETS = [0.250, 0.500, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0];
 
     // SLA Thresholds in seconds
     public const SLA_ACCESS_ACCEPT_MAX_SEC = 0.010; // 10ms
+
     public const SLA_COA_MAX_SEC = 0.500;           // 500ms
+
     public const SLA_PAYMENT_UNBLOCK_MAX_SEC = 3.000; // 3.0s
 
     /**
@@ -46,7 +50,7 @@ class PrometheusMetricsService
 
             if ($latencySeconds > self::SLA_ACCESS_ACCEPT_MAX_SEC) {
                 $this->incrementCounter('bss_sla_breaches_total', ['sla_type' => 'access_accept']);
-                Log::warning("SLA BREACH: RADIUS Access-Accept latency exceeded 10ms threshold", [
+                Log::warning('SLA BREACH: RADIUS Access-Accept latency exceeded 10ms threshold', [
                     'latency_ms' => round($latencySeconds * 1000, 2),
                     'threshold_ms' => 10.0,
                 ]);
@@ -68,7 +72,7 @@ class PrometheusMetricsService
 
         if ($latencySeconds > self::SLA_COA_MAX_SEC) {
             $this->incrementCounter('bss_sla_breaches_total', ['sla_type' => 'coa_kick']);
-            Log::warning("SLA BREACH: RADIUS CoA kick latency exceeded 500ms threshold", [
+            Log::warning('SLA BREACH: RADIUS CoA kick latency exceeded 500ms threshold', [
                 'action' => $action,
                 'latency_ms' => round($latencySeconds * 1000, 2),
                 'threshold_ms' => 500.0,
@@ -87,7 +91,7 @@ class PrometheusMetricsService
 
         if ($latencySeconds > self::SLA_PAYMENT_UNBLOCK_MAX_SEC) {
             $this->incrementCounter('bss_sla_breaches_total', ['sla_type' => 'payment_unblock']);
-            Log::warning("SLA BREACH: BSS payment-to-unblock latency exceeded 3.0s threshold", [
+            Log::warning('SLA BREACH: BSS payment-to-unblock latency exceeded 3.0s threshold', [
                 'gateway' => $gateway,
                 'latency_sec' => round($latencySeconds, 3),
                 'threshold_sec' => 3.0,
@@ -101,7 +105,7 @@ class PrometheusMetricsService
     public function incrementCounter(string $metric, array $labels = [], float $value = 1.0): void
     {
         $labelStr = $this->formatLabels($labels);
-        $redisKey = self::PREFIX . "counter:{$metric}";
+        $redisKey = self::PREFIX."counter:{$metric}";
 
         try {
             Redis::hincrbyfloat($redisKey, $labelStr, $value);
@@ -116,7 +120,7 @@ class PrometheusMetricsService
     public function setGauge(string $metric, float $value, array $labels = []): void
     {
         $labelStr = $this->formatLabels($labels);
-        $redisKey = self::PREFIX . "gauge:{$metric}";
+        $redisKey = self::PREFIX."gauge:{$metric}";
 
         try {
             Redis::hset($redisKey, $labelStr, (string) $value);
@@ -130,7 +134,7 @@ class PrometheusMetricsService
      */
     public function observeHistogram(string $metric, float $value, array $buckets): void
     {
-        $redisKey = self::PREFIX . "histogram:{$metric}";
+        $redisKey = self::PREFIX."histogram:{$metric}";
 
         try {
             // Increment sum and count
@@ -156,52 +160,52 @@ class PrometheusMetricsService
     public function toPrometheusText(): string
     {
         $out = [];
-        $out[] = "# ISP Billing & FreeRADIUS BSS/OSS Prometheus SLA Exporter";
-        $out[] = "# Generated at: " . gmdate('Y-m-d\TH:i:s\Z');
-        $out[] = "";
+        $out[] = '# ISP Billing & FreeRADIUS BSS/OSS Prometheus SLA Exporter';
+        $out[] = '# Generated at: '.gmdate('Y-m-d\TH:i:s\Z');
+        $out[] = '';
 
         // 1. RADIUS Access-Accept Latency (Histogram)
-        $out[] = "# HELP radius_access_accept_latency_seconds RADIUS Access-Accept round-trip latency in seconds (SLA target: < 10ms)";
-        $out[] = "# TYPE radius_access_accept_latency_seconds histogram";
+        $out[] = '# HELP radius_access_accept_latency_seconds RADIUS Access-Accept round-trip latency in seconds (SLA target: < 10ms)';
+        $out[] = '# TYPE radius_access_accept_latency_seconds histogram';
         $out[] = $this->renderHistogram('radius_access_accept_latency_seconds', self::ACCESS_ACCEPT_BUCKETS);
-        $out[] = "";
+        $out[] = '';
 
         // 2. RADIUS Access Requests (Counter)
-        $out[] = "# HELP radius_access_requests_total Total RADIUS Access-Requests processed by outcome";
-        $out[] = "# TYPE radius_access_requests_total counter";
+        $out[] = '# HELP radius_access_requests_total Total RADIUS Access-Requests processed by outcome';
+        $out[] = '# TYPE radius_access_requests_total counter';
         $out[] = $this->renderCounter('radius_access_requests_total', [
             ['status' => 'accept'],
             ['status' => 'reject'],
             ['status' => 'timeout'],
         ]);
-        $out[] = "";
+        $out[] = '';
 
         // 3. RADIUS CoA Kick Latency (Histogram)
-        $out[] = "# HELP radius_coa_latency_seconds RFC 5176 UDP 3799 CoA/PoD execution latency in seconds (SLA target: < 500ms)";
-        $out[] = "# TYPE radius_coa_latency_seconds histogram";
+        $out[] = '# HELP radius_coa_latency_seconds RFC 5176 UDP 3799 CoA/PoD execution latency in seconds (SLA target: < 500ms)';
+        $out[] = '# TYPE radius_coa_latency_seconds histogram';
         $out[] = $this->renderHistogram('radius_coa_latency_seconds', self::COA_BUCKETS);
-        $out[] = "";
+        $out[] = '';
 
         // 4. RADIUS CoA Requests (Counter)
-        $out[] = "# HELP radius_coa_requests_total Total RFC 5176 CoA/PoD packets dispatched by action and status";
-        $out[] = "# TYPE radius_coa_requests_total counter";
+        $out[] = '# HELP radius_coa_requests_total Total RFC 5176 CoA/PoD packets dispatched by action and status';
+        $out[] = '# TYPE radius_coa_requests_total counter';
         $out[] = $this->renderCounter('radius_coa_requests_total', [
             ['action' => 'disconnect', 'status' => 'success'],
             ['action' => 'disconnect', 'status' => 'failure'],
             ['action' => 'coa', 'status' => 'success'],
             ['action' => 'coa', 'status' => 'failure'],
         ]);
-        $out[] = "";
+        $out[] = '';
 
         // 5. BSS Payment-to-Unblock Latency (Histogram)
-        $out[] = "# HELP bss_payment_unblock_latency_seconds End-to-end payment settlement to RADIUS unblock latency in seconds (SLA target: < 3.0s)";
-        $out[] = "# TYPE bss_payment_unblock_latency_seconds histogram";
+        $out[] = '# HELP bss_payment_unblock_latency_seconds End-to-end payment settlement to RADIUS unblock latency in seconds (SLA target: < 3.0s)';
+        $out[] = '# TYPE bss_payment_unblock_latency_seconds histogram';
         $out[] = $this->renderHistogram('bss_payment_unblock_latency_seconds', self::PAYMENT_UNBLOCK_BUCKETS);
-        $out[] = "";
+        $out[] = '';
 
         // 6. BSS Payments Processed (Counter)
-        $out[] = "# HELP bss_payments_processed_total Total MFS payments ingested by gateway and status";
-        $out[] = "# TYPE bss_payments_processed_total counter";
+        $out[] = '# HELP bss_payments_processed_total Total MFS payments ingested by gateway and status';
+        $out[] = '# TYPE bss_payments_processed_total counter';
         $out[] = $this->renderCounter('bss_payments_processed_total', [
             ['gateway' => 'bkash', 'status' => 'accepted'],
             ['gateway' => 'bkash', 'status' => 'duplicate'],
@@ -210,61 +214,62 @@ class PrometheusMetricsService
             ['gateway' => 'nagad', 'status' => 'duplicate'],
             ['gateway' => 'nagad', 'status' => 'rejected'],
         ]);
-        $out[] = "";
+        $out[] = '';
 
         // 7. SLA Breach Counters
-        $out[] = "# HELP bss_sla_breaches_total Total SLA threshold violations recorded by SLA category";
-        $out[] = "# TYPE bss_sla_breaches_total counter";
+        $out[] = '# HELP bss_sla_breaches_total Total SLA threshold violations recorded by SLA category';
+        $out[] = '# TYPE bss_sla_breaches_total counter';
         $out[] = $this->renderCounter('bss_sla_breaches_total', [
             ['sla_type' => 'access_accept'],
             ['sla_type' => 'coa_kick'],
             ['sla_type' => 'payment_unblock'],
         ]);
-        $out[] = "";
+        $out[] = '';
 
         // 8. Gauges: Last Latencies and Health
-        $out[] = "# HELP radius_probe_last_latency_seconds Most recent synthetic RADIUS authentication latency in seconds";
-        $out[] = "# TYPE radius_probe_last_latency_seconds gauge";
-        $out[] = "radius_probe_last_latency_seconds " . $this->getGaugeValue('radius_probe_last_latency_seconds', 0.005);
-        $out[] = "";
+        $out[] = '# HELP radius_probe_last_latency_seconds Most recent synthetic RADIUS authentication latency in seconds';
+        $out[] = '# TYPE radius_probe_last_latency_seconds gauge';
+        $out[] = 'radius_probe_last_latency_seconds '.$this->getGaugeValue('radius_probe_last_latency_seconds', 0.005);
+        $out[] = '';
 
-        $out[] = "# HELP radius_probe_healthy Health status of FreeRADIUS authentication probe (1 = UP, 0 = DOWN)";
-        $out[] = "# TYPE radius_probe_healthy gauge";
-        $out[] = "radius_probe_healthy " . $this->getGaugeValue('radius_probe_healthy', 1.0);
-        $out[] = "";
+        $out[] = '# HELP radius_probe_healthy Health status of FreeRADIUS authentication probe (1 = UP, 0 = DOWN)';
+        $out[] = '# TYPE radius_probe_healthy gauge';
+        $out[] = 'radius_probe_healthy '.$this->getGaugeValue('radius_probe_healthy', 1.0);
+        $out[] = '';
 
-        $out[] = "# HELP radius_coa_last_latency_seconds Most recent CoA dispatch latency in seconds";
-        $out[] = "# TYPE radius_coa_last_latency_seconds gauge";
-        $out[] = "radius_coa_last_latency_seconds " . $this->getGaugeValue('radius_coa_last_latency_seconds', 0.045);
-        $out[] = "";
+        $out[] = '# HELP radius_coa_last_latency_seconds Most recent CoA dispatch latency in seconds';
+        $out[] = '# TYPE radius_coa_last_latency_seconds gauge';
+        $out[] = 'radius_coa_last_latency_seconds '.$this->getGaugeValue('radius_coa_last_latency_seconds', 0.045);
+        $out[] = '';
 
-        $out[] = "# HELP bss_payment_last_unblock_latency_seconds Most recent payment-to-unblock latency in seconds";
-        $out[] = "# TYPE bss_payment_last_unblock_latency_seconds gauge";
-        $out[] = "bss_payment_last_unblock_latency_seconds " . $this->getGaugeValue('bss_payment_last_unblock_latency_seconds', 0.850);
-        $out[] = "";
+        $out[] = '# HELP bss_payment_last_unblock_latency_seconds Most recent payment-to-unblock latency in seconds';
+        $out[] = '# TYPE bss_payment_last_unblock_latency_seconds gauge';
+        $out[] = 'bss_payment_last_unblock_latency_seconds '.$this->getGaugeValue('bss_payment_last_unblock_latency_seconds', 0.850);
+        $out[] = '';
 
         // 9. Subscriber State Gauges
         $counts = $this->getSubscriberCounts();
-        $out[] = "# HELP bss_subscribers_active Total active subscribers on full bandwidth pool";
-        $out[] = "# TYPE bss_subscribers_active gauge";
-        $out[] = "bss_subscribers_active " . $counts['active'];
-        $out[] = "";
+        $out[] = '# HELP bss_subscribers_active Total active subscribers on full bandwidth pool';
+        $out[] = '# TYPE bss_subscribers_active gauge';
+        $out[] = 'bss_subscribers_active '.$counts['active'];
+        $out[] = '';
 
-        $out[] = "# HELP bss_subscribers_walled_garden Total isolated subscribers in walled garden pool";
-        $out[] = "# TYPE bss_subscribers_walled_garden gauge";
-        $out[] = "bss_subscribers_walled_garden " . $counts['walled_garden'];
-        $out[] = "";
+        $out[] = '# HELP bss_subscribers_walled_garden Total isolated subscribers in walled garden pool';
+        $out[] = '# TYPE bss_subscribers_walled_garden gauge';
+        $out[] = 'bss_subscribers_walled_garden '.$counts['walled_garden'];
+        $out[] = '';
 
-        return implode("\n", $out) . "\n";
+        return implode("\n", $out)."\n";
     }
 
     private function renderHistogram(string $metric, array $buckets): string
     {
-        $redisKey = self::PREFIX . "histogram:{$metric}";
+        $redisKey = self::PREFIX."histogram:{$metric}";
         $data = [];
         try {
             $data = Redis::hgetall($redisKey) ?: [];
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
 
         $sum = (float) ($data['_sum'] ?? 0.0);
         $count = (int) ($data['_count'] ?? 0);
@@ -277,7 +282,7 @@ class PrometheusMetricsService
         }
         $infVal = (int) ($data['le_+Inf'] ?? $count);
         $lines[] = "{$metric}_bucket{le=\"+Inf\"} {$infVal}";
-        $lines[] = "{$metric}_sum " . sprintf('%.4f', $sum);
+        $lines[] = "{$metric}_sum ".sprintf('%.4f', $sum);
         $lines[] = "{$metric}_count {$count}";
 
         return implode("\n", $lines);
@@ -285,11 +290,12 @@ class PrometheusMetricsService
 
     private function renderCounter(string $metric, array $expectedLabelSets): string
     {
-        $redisKey = self::PREFIX . "counter:{$metric}";
+        $redisKey = self::PREFIX."counter:{$metric}";
         $data = [];
         try {
             $data = Redis::hgetall($redisKey) ?: [];
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
 
         $lines = [];
         $renderedKeys = [];
@@ -304,7 +310,7 @@ class PrometheusMetricsService
 
         // Include any additional labels present in Redis
         foreach ($data as $k => $v) {
-            if (!isset($renderedKeys[$k]) && $k !== '') {
+            if (! isset($renderedKeys[$k]) && $k !== '') {
                 $lbls = $this->formatPrometheusLabels($this->parseLabels($k));
                 $lines[] = "{$metric}{$lbls} {$v}";
             }
@@ -315,13 +321,14 @@ class PrometheusMetricsService
 
     private function getGaugeValue(string $metric, float $default): float
     {
-        $redisKey = self::PREFIX . "gauge:{$metric}";
+        $redisKey = self::PREFIX."gauge:{$metric}";
         try {
             $val = Redis::hget($redisKey, '');
             if ($val !== null && $val !== false && is_numeric($val)) {
                 return (float) $val;
             }
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
 
         return $default;
     }
@@ -331,6 +338,7 @@ class PrometheusMetricsService
         try {
             $active = DB::table('subscribers')->where('status', 'active')->count();
             $walled = DB::table('subscribers')->where('status', '!=', 'active')->count();
+
             return ['active' => $active, 'walled_garden' => $walled];
         } catch (Throwable) {
             return ['active' => 0, 'walled_garden' => 0];
@@ -344,6 +352,7 @@ class PrometheusMetricsService
         foreach ($labels as $k => $v) {
             $pairs[] = "{$k}={$v}";
         }
+
         return implode(',', $pairs);
     }
 
@@ -360,6 +369,7 @@ class PrometheusMetricsService
                 $labels[$kv[0]] = $kv[1];
             }
         }
+
         return $labels;
     }
 
@@ -372,6 +382,7 @@ class PrometheusMetricsService
         foreach ($labels as $k => $v) {
             $pairs[] = "{$k}=\"{$v}\"";
         }
-        return '{' . implode(',', $pairs) . '}';
+
+        return '{'.implode(',', $pairs).'}';
     }
 }

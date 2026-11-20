@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class LedgerAccount extends Model
 {
     protected $table = 'ledger_accounts';
+
     public $timestamps = false;
 
     protected $fillable = [

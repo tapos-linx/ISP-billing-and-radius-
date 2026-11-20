@@ -39,13 +39,13 @@ final class ReconcileMfsPaymentsJob implements ShouldQueue
                 ->where('invoice_id', $webhook->invoice_id)
                 ->where('status', 'unpaid')
                 ->update([
-                    'status'  => 'paid',
+                    'status' => 'paid',
                     'paid_at' => $webhook->processed_at ?? now(),
                 ]);
 
-            Log::info("ReconcileMfsPaymentsJob settled pending invoice", [
+            Log::info('ReconcileMfsPaymentsJob settled pending invoice', [
                 'invoice_id' => $webhook->invoice_id,
-                'trx_id'     => $webhook->trx_id,
+                'trx_id' => $webhook->trx_id,
             ]);
         }
     }

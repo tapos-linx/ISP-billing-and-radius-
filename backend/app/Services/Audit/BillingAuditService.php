@@ -28,32 +28,32 @@ class BillingAuditService
         $prevHash = $lastLog ? $lastLog->hash_signature : str_repeat('0', 64);
 
         $payloadToSign = json_encode([
-            'prev_hash'   => $prevHash,
-            'event_type'  => $eventType,
+            'prev_hash' => $prevHash,
+            'event_type' => $eventType,
             'entity_type' => $entityType,
-            'entity_id'   => $entityId,
-            'actor_type'  => $actorType,
-            'actor_id'    => $actorId,
-            'prev_state'  => $prevState,
-            'new_state'   => $newState,
-            'timestamp'   => time(),
+            'entity_id' => $entityId,
+            'actor_type' => $actorType,
+            'actor_id' => $actorId,
+            'prev_state' => $prevState,
+            'new_state' => $newState,
+            'timestamp' => time(),
         ], JSON_THROW_ON_ERROR);
 
         $hashSig = hash('sha256', $payloadToSign);
 
         return BillingAuditLog::create([
-            'event_id'       => (string) Str::uuid(),
-            'event_type'     => $eventType,
-            'entity_type'    => $entityType,
-            'entity_id'      => $entityId,
-            'actor_type'     => $actorType,
-            'actor_id'       => $actorId,
-            'prev_state'     => $prevState,
-            'new_state'      => $newState,
-            'ip_address'     => $ipAddress,
+            'event_id' => (string) Str::uuid(),
+            'event_type' => $eventType,
+            'entity_type' => $entityType,
+            'entity_id' => $entityId,
+            'actor_type' => $actorType,
+            'actor_id' => $actorId,
+            'prev_state' => $prevState,
+            'new_state' => $newState,
+            'ip_address' => $ipAddress,
             'hash_signature' => $hashSig,
-            'prev_hash'      => $prevHash,
-            'created_at'     => now(),
+            'prev_hash' => $prevHash,
+            'created_at' => now(),
         ]);
     }
 
@@ -69,9 +69,9 @@ class BillingAuditService
         foreach ($logs as $log) {
             if ($log->prev_hash !== $expectedPrevHash) {
                 $tampered[] = [
-                    'id'               => $log->id,
-                    'event_id'         => $log->event_id,
-                    'expected_prev'    => $expectedPrevHash,
+                    'id' => $log->id,
+                    'event_id' => $log->event_id,
+                    'expected_prev' => $expectedPrevHash,
                     'actual_prev_hash' => $log->prev_hash,
                 ];
             }
@@ -79,9 +79,9 @@ class BillingAuditService
         }
 
         return [
-            'total_logs'   => $logs->count(),
-            'is_valid'     => empty($tampered),
-            'tampered_rows'=> $tampered,
+            'total_logs' => $logs->count(),
+            'is_valid' => empty($tampered),
+            'tampered_rows' => $tampered,
         ];
     }
 }

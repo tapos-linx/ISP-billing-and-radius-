@@ -29,11 +29,12 @@ class ReportBtrcComplianceCommand extends Command
                 ['Active Subscribers Count', $report['total_active_subscribers']],
                 ['Expired / Suspended Subscribers', $report['total_expired_subscribers']],
                 ['CGNAT Accounting Sessions', $report['cgnat_allocated_sessions']],
-                ['Total Volume Consumed (GB)', number_format($report['total_traffic_gb'], 2) . ' GB'],
+                ['Total Volume Consumed (GB)', number_format($report['total_traffic_gb'], 2).' GB'],
             ]
         );
 
-        $this->info("[SUCCESS] BTRC regulatory return recorded in btrc_regulatory_reports.");
+        $this->info('[SUCCESS] BTRC regulatory return recorded in btrc_regulatory_reports.');
+
         return Command::SUCCESS;
     }
 }

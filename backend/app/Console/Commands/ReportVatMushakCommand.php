@@ -33,7 +33,8 @@ class ReportVatMushakCommand extends Command
             ]
         );
 
-        $this->info("[SUCCESS] Mushak-6.3 VAT return aggregated and recorded in vat_mushak_reports.");
+        $this->info('[SUCCESS] Mushak-6.3 VAT return aggregated and recorded in vat_mushak_reports.');
+
         return Command::SUCCESS;
     }
 }

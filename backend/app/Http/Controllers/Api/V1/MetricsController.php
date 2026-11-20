@@ -23,7 +23,7 @@ class MetricsController extends Controller
         $content = $this->metricsService->toPrometheusText();
 
         return response($content, 200, [
-            'Content-Type'  => 'text/plain; version=0.0.4; charset=utf-8',
+            'Content-Type' => 'text/plain; version=0.0.4; charset=utf-8',
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
         ]);
     }

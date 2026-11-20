@@ -29,11 +29,11 @@ class MaintainRadacctPartitionsCommand extends Command
                 ) AS exists;
             ");
 
-            if (!$exists || !$exists->exists) {
+            if (! $exists || ! $exists->exists) {
                 $sqlPath = database_path('sql/03-partition-maintenance.sql');
                 if (file_exists($sqlPath)) {
                     DB::unprepared(file_get_contents($sqlPath));
-                    $this->info("Installed manage_radacct_monthly_partitions function from sql file.");
+                    $this->info('Installed manage_radacct_monthly_partitions function from sql file.');
                 } else {
                     // Inline creation if file not found
                     DB::unprepared("
@@ -84,7 +84,7 @@ class MaintainRadacctPartitionsCommand extends Command
                 }
             }
 
-            $rows = DB::select("SELECT * FROM manage_radacct_monthly_partitions(?, ?);", [$monthsAhead, $retentionMonths]);
+            $rows = DB::select('SELECT * FROM manage_radacct_monthly_partitions(?, ?);', [$monthsAhead, $retentionMonths]);
 
             $created = 0;
             $existing = 0;
@@ -103,12 +103,13 @@ class MaintainRadacctPartitionsCommand extends Command
             }
 
             $this->info("Completed partition maintenance: {$created} created, {$existing} verified, {$detached} detached.");
-            Log::info("radacct partition maintenance completed", ['created' => $created, 'existing' => $existing, 'detached' => $detached]);
+            Log::info('radacct partition maintenance completed', ['created' => $created, 'existing' => $existing, 'detached' => $detached]);
 
             return Command::SUCCESS;
         } catch (\Throwable $e) {
-            $this->error("Failed to maintain radacct partitions: " . $e->getMessage());
-            Log::error("Partition maintenance failed: " . $e->getMessage());
+            $this->error('Failed to maintain radacct partitions: '.$e->getMessage());
+            Log::error('Partition maintenance failed: '.$e->getMessage());
+
             return Command::FAILURE;
         }
     }

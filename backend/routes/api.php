@@ -20,10 +20,11 @@ Route::prefix('v1')->group(function (): void {
     Route::get('/health', function () {
         DB::select('SELECT 1');
         $redisPing = Redis::ping();
+
         return response()->json([
             'status' => 'ok',
-            'citus'  => 'connected',
-            'redis'  => (string) $redisPing,
+            'citus' => 'connected',
+            'redis' => (string) $redisPing,
         ]);
     });
 
@@ -39,6 +40,7 @@ Route::prefix('v1')->group(function (): void {
     // Cloud Scheduler 00:01 AM Dhaka Expiry Job
     Route::post('/jobs/expire-overdue', function () {
         ExpireOverdueSubscribersJob::dispatch();
+
         return response()->json(['status' => 'queued']);
     });
 

@@ -50,9 +50,9 @@ class RadiusCoaService
         try {
             return $this->sendRadclient($nasIp, $coaPort, 'disconnect', $secret, $payload);
         } catch (Throwable $e) {
-            Log::warning("RadiusCoaService disconnect failed: " . $e->getMessage(), [
+            Log::warning('RadiusCoaService disconnect failed: '.$e->getMessage(), [
                 'username' => $username,
-                'nasIp'    => $nasIp,
+                'nasIp' => $nasIp,
             ]);
 
             if ($subscriberId !== null) {
@@ -84,9 +84,9 @@ class RadiusCoaService
         try {
             return $this->sendRadclient($nasIp, $coaPort, 'coa', $secret, $payload);
         } catch (Throwable $e) {
-            Log::warning("RadiusCoaService changeBandwidth failed: " . $e->getMessage(), [
+            Log::warning('RadiusCoaService changeBandwidth failed: '.$e->getMessage(), [
                 'username' => $username,
-                'nasIp'    => $nasIp,
+                'nasIp' => $nasIp,
             ]);
 
             if ($subscriberId !== null) {
@@ -113,6 +113,7 @@ class RadiusCoaService
         }
 
         $packetType = $action === 'disconnect' ? 'disconnect' : 'coa';
+
         return $this->sendRadclient($nasIp, self::DEFAULT_COA_PORT, $packetType, $secret, $payload);
     }
 
@@ -129,14 +130,14 @@ class RadiusCoaService
         try {
             DB::table('failed_coa_jobs')->insert([
                 'subscriber_id' => $subscriberId,
-                'username'      => $username,
-                'nas_ip'        => $nasIp,
-                'action'        => $action,
-                'error_reason'  => substr($reason, 0, 500),
-                'created_at'    => now(),
+                'username' => $username,
+                'nas_ip' => $nasIp,
+                'action' => $action,
+                'error_reason' => substr($reason, 0, 500),
+                'created_at' => now(),
             ]);
         } catch (Throwable $e) {
-            Log::error("Failed to record dead-letter CoA: " . $e->getMessage());
+            Log::error('Failed to record dead-letter CoA: '.$e->getMessage());
         }
     }
 
@@ -158,10 +159,10 @@ class RadiusCoaService
 
             $duration = microtime(true) - $start;
 
-            if (!$result->successful()) {
+            if (! $result->successful()) {
                 $this->getMetrics()->recordCoaLatency($duration, $packetType, false);
                 throw new RuntimeException(
-                    "RADIUS {$packetType} failed for {$target}: " . trim($result->errorOutput() ?: $result->output())
+                    "RADIUS {$packetType} failed for {$target}: ".trim($result->errorOutput() ?: $result->output())
                 );
             }
 
@@ -169,6 +170,7 @@ class RadiusCoaService
                 || str_contains($result->output(), 'Received CoA-ACK');
 
             $this->getMetrics()->recordCoaLatency($duration, $packetType, $success);
+
             return $success;
         } catch (Throwable $e) {
             $duration = microtime(true) - $start;

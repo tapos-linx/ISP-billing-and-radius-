@@ -41,41 +41,41 @@ class DoubleEntryLedgerService
             // 1. DR: Accounts Receivable
             LedgerEntry::create([
                 'journal_entry_id' => $journalId,
-                'account_id'       => $arAccount->id,
-                'invoice_id'       => $invoice->invoice_id,
-                'subscriber_id'    => $invoice->subscriber_id,
-                'tenant_id'        => $invoice->tenant_id ?: 1,
-                'debit_bdt'        => $totalBdt,
-                'credit_bdt'       => 0.00,
-                'description'      => "Invoice #{$invoice->invoice_id} issuance to subscriber",
-                'posted_at'        => now(),
+                'account_id' => $arAccount->id,
+                'invoice_id' => $invoice->invoice_id,
+                'subscriber_id' => $invoice->subscriber_id,
+                'tenant_id' => $invoice->tenant_id ?: 1,
+                'debit_bdt' => $totalBdt,
+                'credit_bdt' => 0.00,
+                'description' => "Invoice #{$invoice->invoice_id} issuance to subscriber",
+                'posted_at' => now(),
             ]);
 
             // 2. CR: Revenue
             LedgerEntry::create([
                 'journal_entry_id' => $journalId,
-                'account_id'       => $revAccount->id,
-                'invoice_id'       => $invoice->invoice_id,
-                'subscriber_id'    => $invoice->subscriber_id,
-                'tenant_id'        => $invoice->tenant_id ?: 1,
-                'debit_bdt'        => 0.00,
-                'credit_bdt'       => $subtotalBdt,
-                'description'      => "Broadband subscription revenue for invoice #{$invoice->invoice_id}",
-                'posted_at'        => now(),
+                'account_id' => $revAccount->id,
+                'invoice_id' => $invoice->invoice_id,
+                'subscriber_id' => $invoice->subscriber_id,
+                'tenant_id' => $invoice->tenant_id ?: 1,
+                'debit_bdt' => 0.00,
+                'credit_bdt' => $subtotalBdt,
+                'description' => "Broadband subscription revenue for invoice #{$invoice->invoice_id}",
+                'posted_at' => now(),
             ]);
 
             // 3. CR: VAT Output Tax
             if ($vatBdt > 0) {
                 LedgerEntry::create([
                     'journal_entry_id' => $journalId,
-                    'account_id'       => $vatAccount->id,
-                    'invoice_id'       => $invoice->invoice_id,
-                    'subscriber_id'    => $invoice->subscriber_id,
-                    'tenant_id'        => $invoice->tenant_id ?: 1,
-                    'debit_bdt'        => 0.00,
-                    'credit_bdt'       => $vatBdt,
-                    'description'      => "NBR 5% Mushak-6.3 VAT on invoice #{$invoice->invoice_id}",
-                    'posted_at'        => now(),
+                    'account_id' => $vatAccount->id,
+                    'invoice_id' => $invoice->invoice_id,
+                    'subscriber_id' => $invoice->subscriber_id,
+                    'tenant_id' => $invoice->tenant_id ?: 1,
+                    'debit_bdt' => 0.00,
+                    'credit_bdt' => $vatBdt,
+                    'description' => "NBR 5% Mushak-6.3 VAT on invoice #{$invoice->invoice_id}",
+                    'posted_at' => now(),
                 ]);
             }
 
@@ -100,35 +100,35 @@ class DoubleEntryLedgerService
             $amountBdt = (float) $payment->amount_bdt;
 
             if ($amountBdt <= 0) {
-                throw new InvalidArgumentException("Payment amount must be greater than zero.");
+                throw new InvalidArgumentException('Payment amount must be greater than zero.');
             }
 
             // 1. DR: Cash / MFS Clearing
             LedgerEntry::create([
                 'journal_entry_id' => $journalId,
-                'account_id'       => $cashAccount->id,
-                'invoice_id'       => $invoice->invoice_id,
-                'payment_id'       => $payment->payment_id,
-                'subscriber_id'    => $invoice->subscriber_id,
-                'tenant_id'        => $invoice->tenant_id ?: 1,
-                'debit_bdt'        => $amountBdt,
-                'credit_bdt'       => 0.00,
-                'description'      => "MFS settlement ({$payment->gateway} - {$payment->trx_id}) for invoice #{$invoice->invoice_id}",
-                'posted_at'        => $payment->paid_at ?: now(),
+                'account_id' => $cashAccount->id,
+                'invoice_id' => $invoice->invoice_id,
+                'payment_id' => $payment->payment_id,
+                'subscriber_id' => $invoice->subscriber_id,
+                'tenant_id' => $invoice->tenant_id ?: 1,
+                'debit_bdt' => $amountBdt,
+                'credit_bdt' => 0.00,
+                'description' => "MFS settlement ({$payment->gateway} - {$payment->trx_id}) for invoice #{$invoice->invoice_id}",
+                'posted_at' => $payment->paid_at ?: now(),
             ]);
 
             // 2. CR: Accounts Receivable
             LedgerEntry::create([
                 'journal_entry_id' => $journalId,
-                'account_id'       => $arAccount->id,
-                'invoice_id'       => $invoice->invoice_id,
-                'payment_id'       => $payment->payment_id,
-                'subscriber_id'    => $invoice->subscriber_id,
-                'tenant_id'        => $invoice->tenant_id ?: 1,
-                'debit_bdt'        => 0.00,
-                'credit_bdt'       => $amountBdt,
-                'description'      => "Relieve Accounts Receivable for settled invoice #{$invoice->invoice_id}",
-                'posted_at'        => $payment->paid_at ?: now(),
+                'account_id' => $arAccount->id,
+                'invoice_id' => $invoice->invoice_id,
+                'payment_id' => $payment->payment_id,
+                'subscriber_id' => $invoice->subscriber_id,
+                'tenant_id' => $invoice->tenant_id ?: 1,
+                'debit_bdt' => 0.00,
+                'credit_bdt' => $amountBdt,
+                'description' => "Relieve Accounts Receivable for settled invoice #{$invoice->invoice_id}",
+                'posted_at' => $payment->paid_at ?: now(),
             ]);
 
             $this->validateJournalBalance($journalId);
@@ -190,12 +190,12 @@ class DoubleEntryLedgerService
             ->get();
 
         return [
-            'is_balanced'        => $isBalanced,
-            'total_debit_bdt'    => $globalDebit,
-            'total_credit_bdt'   => $globalCredit,
-            'imbalanced_count'   => $imbalanced->count(),
+            'is_balanced' => $isBalanced,
+            'total_debit_bdt' => $globalDebit,
+            'total_credit_bdt' => $globalCredit,
+            'imbalanced_count' => $imbalanced->count(),
             'imbalanced_entries' => $imbalanced->toArray(),
-            'trial_balance'      => $trialBalance->toArray(),
+            'trial_balance' => $trialBalance->toArray(),
         ];
     }
 }

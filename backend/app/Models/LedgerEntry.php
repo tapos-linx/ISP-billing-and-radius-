@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class LedgerEntry extends Model
 {
     protected $table = 'ledger_entries';
+
     protected $primaryKey = 'entry_id';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -27,9 +29,9 @@ class LedgerEntry extends Model
     ];
 
     protected $casts = [
-        'debit_bdt'  => 'float',
+        'debit_bdt' => 'float',
         'credit_bdt' => 'float',
-        'posted_at'  => 'datetime',
+        'posted_at' => 'datetime',
         'created_at' => 'datetime',
     ];
 

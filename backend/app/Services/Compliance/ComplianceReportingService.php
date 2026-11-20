@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Compliance;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class ComplianceReportingService
 {
@@ -38,13 +37,13 @@ class ComplianceReportingService
         DB::table('vat_mushak_reports')->updateOrInsert(
             ['year_month' => $yearMonth],
             [
-                'total_invoices_count'        => $count,
-                'gross_revenue_bdt'           => $gross,
-                'taxable_subtotal_bdt'        => $taxable,
+                'total_invoices_count' => $count,
+                'gross_revenue_bdt' => $gross,
+                'taxable_subtotal_bdt' => $taxable,
                 'vat_collected_5_percent_bdt' => $vat,
-                'exempt_amount_bdt'           => 0.00,
-                'mushak_version'              => 'Mushak-6.3',
-                'generated_at'                => now(),
+                'exempt_amount_bdt' => 0.00,
+                'mushak_version' => 'Mushak-6.3',
+                'generated_at' => now(),
             ]
         );
 
@@ -57,14 +56,14 @@ class ComplianceReportingService
             ->get();
 
         return [
-            'year_month'                  => $yearMonth,
-            'mushak_format'               => 'NBR Mushak-6.3 / Mushak-9.1 Sub-form',
-            'vat_rate'                    => '5.00%',
-            'total_invoices'              => $count,
-            'gross_revenue_bdt'           => $gross,
-            'taxable_subtotal_bdt'        => $taxable,
+            'year_month' => $yearMonth,
+            'mushak_format' => 'NBR Mushak-6.3 / Mushak-9.1 Sub-form',
+            'vat_rate' => '5.00%',
+            'total_invoices' => $count,
+            'gross_revenue_bdt' => $gross,
+            'taxable_subtotal_bdt' => $taxable,
             'vat_collected_5_percent_bdt' => $vat,
-            'invoices'                    => $lineItems->toArray(),
+            'invoices' => $lineItems->toArray(),
         ];
     }
 
@@ -98,24 +97,24 @@ class ComplianceReportingService
         DB::table('btrc_regulatory_reports')->updateOrInsert(
             ['report_period' => $yearMonth],
             [
-                'total_active_subscribers'  => $activeCount,
+                'total_active_subscribers' => $activeCount,
                 'total_expired_subscribers' => $expiredCount,
-                'cgnat_allocated_sessions'  => $sessionCount,
-                'total_traffic_gb'          => $totalGb,
-                'compliance_status'         => 'COMPLIANT',
-                'btrc_tariff_tier'          => 'Nationwide ISP Tier-1',
-                'generated_at'              => now(),
+                'cgnat_allocated_sessions' => $sessionCount,
+                'total_traffic_gb' => $totalGb,
+                'compliance_status' => 'COMPLIANT',
+                'btrc_tariff_tier' => 'Nationwide ISP Tier-1',
+                'generated_at' => now(),
             ]
         );
 
         return [
-            'report_period'            => $yearMonth,
-            'btrc_tier'                => 'Nationwide ISP Tier-1',
-            'compliance_status'        => 'COMPLIANT',
+            'report_period' => $yearMonth,
+            'btrc_tier' => 'Nationwide ISP Tier-1',
+            'compliance_status' => 'COMPLIANT',
             'total_active_subscribers' => $activeCount,
-            'total_expired_subscribers'=> $expiredCount,
+            'total_expired_subscribers' => $expiredCount,
             'cgnat_allocated_sessions' => $sessionCount,
-            'total_traffic_gb'         => $totalGb,
+            'total_traffic_gb' => $totalGb,
         ];
     }
 }

@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Services\Metrics\PrometheusMetricsService;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Redis;
 use Tests\TestCase;
 
 /**
@@ -98,10 +97,10 @@ class ObservabilityAndSlaMetricsTest extends TestCase
     {
         $exitCode = Artisan::call('metrics:probe-aaa', [
             '--iterations' => 1,
-            '--host'       => 'freeradius_aaa',
-            '--port'       => 1812,
-            '--username'   => 'e2e_live_user',
-            '--password'   => 'E2eLivePass@2026',
+            '--host' => 'freeradius_aaa',
+            '--port' => 1812,
+            '--username' => 'e2e_live_user',
+            '--password' => 'E2eLivePass@2026',
         ]);
 
         $this->assertEquals(0, $exitCode);

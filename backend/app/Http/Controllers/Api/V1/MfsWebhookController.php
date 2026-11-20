@@ -39,12 +39,14 @@ final class MfsWebhookController extends Controller
     public function handleBkash(Request $request): JsonResponse
     {
         $secret = $this->resolveWebhookSecret('bkash');
+
         return $this->processWebhook($request, 'bkash', $secret);
     }
 
     public function handleNagad(Request $request): JsonResponse
     {
         $secret = $this->resolveWebhookSecret('nagad');
+
         return $this->processWebhook($request, 'nagad', $secret);
     }
 
@@ -75,13 +77,13 @@ final class MfsWebhookController extends Controller
             default => null,
         };
 
-        if (!empty($val)) {
+        if (! empty($val)) {
             return (string) $val;
         }
 
         if (app()->environment('production')) {
             Log::critical("MFS webhook secret is missing in production environment for gateway: {$gateway}");
-            abort(500, "Webhook gateway secret not configured");
+            abort(500, 'Webhook gateway secret not configured');
         }
 
         return "sandbox_{$gateway}_secret_2026";
@@ -94,36 +96,38 @@ final class MfsWebhookController extends Controller
         $rawContent = (string) $request->getContent();
         $expected = hash_hmac('sha256', $rawContent, $secret);
 
-        if (!hash_equals($expected, $signature)) {
+        if (! hash_equals($expected, $signature)) {
             $this->metricsService->incrementCounter('bss_payments_processed_total', ['gateway' => $gateway, 'status' => 'rejected']);
-            Log::warning("MFS Webhook invalid HMAC signature", [
-                'gateway'   => $gateway,
-                'ip'        => $request->ip(),
-                'signature' => substr($signature, 0, 8) . '...',
+            Log::warning('MFS Webhook invalid HMAC signature', [
+                'gateway' => $gateway,
+                'ip' => $request->ip(),
+                'signature' => substr($signature, 0, 8).'...',
             ]);
+
             return response()->json(['error' => 'Invalid HMAC-SHA256 signature'], 401);
         }
 
         $data = $request->validate([
-            'trx_id'        => ['required', 'string', 'max:128'],
-            'invoice_id'    => ['required', 'uuid'],
+            'trx_id' => ['required', 'string', 'max:128'],
+            'invoice_id' => ['required', 'uuid'],
             'subscriber_id' => ['required', 'uuid'],
-            'amount_bdt'    => ['required', 'numeric', 'min:1'],
+            'amount_bdt' => ['required', 'numeric', 'min:1'],
         ]);
 
         // Redis SETNX transaction idempotency guard
         $lockKey = "webhook:{$gateway}:{$data['trx_id']}";
         $acquired = Redis::set($lockKey, '1', 'EX', 86400 * 7, 'NX');
-        if (!$acquired) {
+        if (! $acquired) {
             $duration = microtime(true) - $startTime;
             $this->metricsService->recordPaymentUnblockLatency($duration, $gateway, 'duplicate');
-            Log::info("MFS Webhook duplicate transaction ignored", [
+            Log::info('MFS Webhook duplicate transaction ignored', [
                 'gateway' => $gateway,
-                'trx_id'  => $data['trx_id'],
+                'trx_id' => $data['trx_id'],
             ]);
+
             return response()->json([
-                'status'  => 'duplicate_ignored',
-                'trx_id'  => $data['trx_id'],
+                'status' => 'duplicate_ignored',
+                'trx_id' => $data['trx_id'],
                 'message' => 'Transaction already processed',
             ], 409);
         }
@@ -138,12 +142,12 @@ final class MfsWebhookController extends Controller
                     ->where('debit_bdt', '>', 0)
                     ->exists();
 
-                if (!$hasArEntry) {
+                if (! $hasArEntry) {
                     $this->ledgerService->recordInvoiceIssuance($invoice);
                 }
 
                 $invoice->update([
-                    'status'  => 'paid',
+                    'status' => 'paid',
                     'paid_at' => now(),
                 ]);
             } else {
@@ -151,33 +155,33 @@ final class MfsWebhookController extends Controller
                     ->where('invoice_id', $data['invoice_id'])
                     ->where('subscriber_id', $data['subscriber_id'])
                     ->update([
-                        'status'  => 'paid',
+                        'status' => 'paid',
                         'paid_at' => now(),
                     ]);
             }
 
             // 2. Create Payment Record
             $payment = Payment::create([
-                'payment_id'    => (string) Str::uuid(),
-                'invoice_id'    => $data['invoice_id'],
+                'payment_id' => (string) Str::uuid(),
+                'invoice_id' => $data['invoice_id'],
                 'subscriber_id' => $data['subscriber_id'],
-                'tenant_id'     => $invoice ? $invoice->tenant_id : 1,
-                'amount_bdt'    => $data['amount_bdt'],
-                'gateway'       => $gateway,
-                'trx_id'        => $data['trx_id'],
-                'status'        => 'completed',
-                'paid_at'       => now(),
+                'tenant_id' => $invoice ? $invoice->tenant_id : 1,
+                'amount_bdt' => $data['amount_bdt'],
+                'gateway' => $gateway,
+                'trx_id' => $data['trx_id'],
+                'status' => 'completed',
+                'paid_at' => now(),
             ]);
 
             // Backward-compatible payment_webhooks insert
             DB::table('payment_webhooks')->insert([
                 'subscriber_id' => $data['subscriber_id'],
-                'invoice_id'    => $data['invoice_id'],
-                'gateway'       => $gateway,
-                'trx_id'        => $data['trx_id'],
-                'amount_bdt'    => $data['amount_bdt'],
+                'invoice_id' => $data['invoice_id'],
+                'gateway' => $gateway,
+                'trx_id' => $data['trx_id'],
+                'amount_bdt' => $data['amount_bdt'],
                 'hmac_verified' => true,
-                'processed_at'  => now(),
+                'processed_at' => now(),
             ]);
 
             // 3. Post Double-Entry Payment Settlement (DR: Cash/MFS Clearing, CR: Accounts Receivable)
@@ -194,9 +198,9 @@ final class MfsWebhookController extends Controller
                 actorId: $gateway,
                 prevState: null,
                 newState: [
-                    'trx_id'     => $data['trx_id'],
+                    'trx_id' => $data['trx_id'],
                     'amount_bdt' => $data['amount_bdt'],
-                    'gateway'    => $gateway,
+                    'gateway' => $gateway,
                 ],
                 ipAddress: $request->ip()
             );
@@ -225,23 +229,23 @@ final class MfsWebhookController extends Controller
             DB::table('subscribers')
                 ->where('subscriber_id', $data['subscriber_id'])
                 ->update([
-                    'status'     => 'active',
+                    'status' => 'active',
                     'expires_at' => $newExpiry,
                 ]);
 
             // BTRC Audit Retention Log
             DB::table('btrc_audit_logs')->insert([
-                'subscriber_id'  => $data['subscriber_id'],
-                'actor_type'     => 'mfs_webhook',
-                'action'         => 'activate_after_payment',
-                'framed_ip'      => '100.64.0.10',
-                'metadata'       => json_encode([
-                    'gateway'    => $gateway,
-                    'trx_id'     => $data['trx_id'],
+                'subscriber_id' => $data['subscriber_id'],
+                'actor_type' => 'mfs_webhook',
+                'action' => 'activate_after_payment',
+                'framed_ip' => '100.64.0.10',
+                'metadata' => json_encode([
+                    'gateway' => $gateway,
+                    'trx_id' => $data['trx_id'],
                     'amount_bdt' => $data['amount_bdt'],
                 ]),
                 'retained_until' => now()->addDays(730),
-                'created_at'     => now(),
+                'created_at' => now(),
             ]);
 
             return DB::table('subscribers')
@@ -260,10 +264,10 @@ final class MfsWebhookController extends Controller
             // Atomically update radreply to active pool and rate limit, plus warm Redis fast-path
             $this->radiusSync->syncSubscriber([
                 'subscriber_id' => $subscriber->subscriber_id,
-                'username'      => $subscriber->username,
-                'password'      => $password,
-                'rate_limit'    => $rateLimit,
-                'status'        => 'active',
+                'username' => $subscriber->username,
+                'password' => $password,
+                'rate_limit' => $rateLimit,
+                'status' => 'active',
             ]);
 
             // Dispatch RFC 5176 UDP 3799 CoA/PoD Disconnect to NAS
@@ -300,7 +304,7 @@ final class MfsWebhookController extends Controller
                     ipAddress: $nasIp
                 );
             } catch (\Throwable $e) {
-                Log::info("CoA dispatch recorded: " . $e->getMessage());
+                Log::info('CoA dispatch recorded: '.$e->getMessage());
             }
         }
 
@@ -309,8 +313,8 @@ final class MfsWebhookController extends Controller
         $this->metricsService->recordPaymentUnblockLatency($duration, $gateway, 'accepted');
 
         return response()->json([
-            'status'  => 'accepted',
-            'trx_id'  => $data['trx_id'],
+            'status' => 'accepted',
+            'trx_id' => $data['trx_id'],
             'message' => 'Invoice settled, ledger updated, subscriber line restored to active pool',
         ], 202);
     }

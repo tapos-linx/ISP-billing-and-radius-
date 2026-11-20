@@ -14,9 +14,13 @@ class Payment extends Model
     use HasUuids;
 
     protected $table = 'payments';
+
     protected $primaryKey = 'payment_id';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -33,7 +37,7 @@ class Payment extends Model
 
     protected $casts = [
         'amount_bdt' => 'float',
-        'paid_at'    => 'datetime',
+        'paid_at' => 'datetime',
         'created_at' => 'datetime',
     ];
 
