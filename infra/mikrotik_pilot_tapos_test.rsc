@@ -34,6 +34,12 @@ add address=10.10.0.10 secret="REPLACE_WITH_RADIUS_SECRET" service=ppp timeout=3
 /radius incoming
 set accept=yes port=3799
 
+# 6.1 Allow Incoming RFC 5176 CoA / PoD Disconnect (UDP 3799) in Firewall Filter
+# Ensures UDP 3799 packets from the Ubuntu RADIUS server are NOT dropped by MikroTik input filter
+/ip firewall filter
+add chain=input action=accept protocol=udp dst-port=3799 src-address=10.10.0.10 \
+    comment="PILOT_TAPOS_TEST: Allow RFC 5176 CoA/PoD Disconnect from FreeRADIUS" place-before=1
+
 # 7. AAA Accounting with 5-Minute Interim Updates (BTRC 2-Year Retention Stream)
 /ppp aaa
 set accounting=yes interim-update=5m use-radius=yes
@@ -51,5 +57,6 @@ add action=dst-nat chain=dstnat dst-port=80 protocol=tcp src-address=10.250.0.0/
 # /ip pool remove [find comment~"PILOT_TAPOS_TEST"]
 # /interface vlan remove [find comment~"PILOT_TAPOS_TEST"]
 # /radius remove [find comment~"PILOT_TAPOS_TEST"]
+# /ip firewall filter remove [find comment~"PILOT_TAPOS_TEST"]
 # /ip firewall nat remove [find comment~"PILOT_TAPOS_TEST"]
 # ==============================================================================

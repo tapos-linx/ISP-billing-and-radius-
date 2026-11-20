@@ -73,22 +73,26 @@ PILOT SUBSCRIBER CREDENTIALS:
 
 OPERATIONAL MODES:
   -d, --dry-run              Pre-flight validation only; make no database or router changes
-  --rollback, --cleanup      Purge pilot subscriber records and sessions immediately
+  --print-ros, --show-ros    Generate and print ready-to-paste MikroTik RouterOS v7 CLI commands
+  --cleanup, --rollback      Purge pilot subscriber records and sessions immediately (idempotent)
   --auto-cleanup             Automatically tear down pilot test records upon completion
   -y, --yes                  Non-interactive mode (skip confirmation prompts)
   -h, --help                 Display this help guide and exit
 
 EXAMPLES:
-  # 1. Non-destructive Pre-Flight Dry Run against remote Ubuntu + MikroTik CHR:
+  # 1. Print ready-to-paste MikroTik RouterOS v7 RADIUS, CoA & Firewall commands:
+  $0 -s 192.168.1.50 -m 192.168.1.1 -r RadiusSecretKey2026 --print-ros
+
+  # 2. Non-destructive Pre-Flight Dry Run against remote Ubuntu + MikroTik CHR:
   $0 -s 192.168.1.50 -u ubuntu -i ~/.ssh/id_rsa -m 192.168.1.1 -r RadiusSecretKey2026 --dry-run
 
-  # 2. Execute End-to-End Pilot Verification:
+  # 3. Execute End-to-End Pilot Verification:
   $0 -s 192.168.1.50 -u ubuntu -i ~/.ssh/id_rsa -m 192.168.1.1 -r RadiusSecretKey2026
 
-  # 3. Force Immediate Rollback / Cleanup of Pilot Subscriber:
-  $0 -s 192.168.1.50 -u ubuntu -i ~/.ssh/id_rsa --rollback
+  # 4. Immediate Idempotent Teardown / Cleanup of Pilot Subscriber:
+  $0 -s 192.168.1.50 -u ubuntu -i ~/.ssh/id_rsa --cleanup
 
-  # 4. Local Execution on the Ubuntu Server itself:
+  # 5. Local Execution on the Ubuntu Server itself:
   $0 -s 127.0.0.1 -m 10.10.0.2 -r secure_radius_secret_key_2026
 EOF
 }
@@ -146,6 +150,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -d|--dry-run)
             DRY_RUN=1
+            shift
+            ;;
+        --print-ros|--show-ros|--mikrotik-commands)
+            ACTION="print_ros"
             shift
             ;;
         --rollback|--cleanup)
@@ -238,16 +246,115 @@ if [[ ! "${PILOT_USER}" =~ ^(tapos_pilot|pilot_.*|test_.*)$ ]]; then
     exit 1
 fi
 
-# --- Resolve RADIUS Secret ---
+# --- Helper: Resolve Ubuntu RADIUS IP for MikroTik RouterOS ---
+get_routeros_radius_ip() {
+    if [[ "${IS_LOCAL}" -eq 1 ]]; then
+        local detected_ip
+        detected_ip=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+        if [[ -n "${detected_ip}" && "${detected_ip}" != "127.0.0.1" ]]; then
+            echo "${detected_ip}"
+        else
+            echo "<UBUNTU_SERVER_IP>"
+        fi
+    else
+        echo "${UBUNTU_IP}"
+    fi
+}
+
+# --- Generator: Ready-to-Paste MikroTik RouterOS v7 RADIUS & CoA Configuration ---
+print_routeros_v7_commands() {
+    local target_radius_ip
+    target_radius_ip=$(get_routeros_radius_ip)
+    local secret_val="${RADIUS_SECRET:-REPLACE_WITH_RADIUS_SECRET}"
+
+    cat <<EOF
+# ==============================================================================
+# MikroTik RouterOS v7 CLI Commands: Single-Subscriber Pilot (${PILOT_USER})
+# Target RADIUS Server : ${target_radius_ip}
+# Authentication Port  : UDP ${AUTH_PORT}
+# Accounting Port      : UDP ${ACCT_PORT}
+# CoA / Disconnect Port: UDP ${COA_PORT}
+# Dedicated Test VLAN  : VLAN ${TEST_VLAN} (Interface ether2)
+# ==============================================================================
+
+# [1/6] Allow UDP ${COA_PORT} CoA / Disconnect-Requests in Firewall Input Filter
+# (CRITICAL: Place rule before default drop rules so RFC 5176 packets from Ubuntu are not dropped)
+/ip firewall filter
+add chain=input action=accept protocol=udp dst-port=${COA_PORT} src-address=${target_radius_ip} \\
+    comment="PILOT_TAPOS_TEST: Allow RFC 5176 CoA/PoD Disconnect from Ubuntu RADIUS" place-before=1
+
+# [2/6] Enable Incoming RFC 3576 / RFC 5176 CoA & Disconnect Listener
+/radius incoming
+set accept=yes port=${COA_PORT}
+
+# [3/6] Register Ubuntu 24.04 FreeRADIUS 3.x Client
+/radius
+add address=${target_radius_ip} \\
+    service=ppp \\
+    authentication-port=${AUTH_PORT} \\
+    accounting-port=${ACCT_PORT} \\
+    timeout=3000ms \\
+    secret="${secret_val}" \\
+    comment="PILOT_TAPOS_TEST: Ubuntu 24.04 FreeRADIUS"
+
+# [4/6] Enable PPP AAA with 5-Minute Interim Accounting Stream (BTRC Compliance)
+/ppp aaa
+set accounting=yes interim-update=5m use-radius=yes
+
+# [5/6] Create Sandbox IP Pools & PPPoE Server Bound to Test VLAN ${TEST_VLAN}
+/ip pool
+add name=pppoe_active_pool ranges=100.64.0.10-100.64.15.254 comment="PILOT_TAPOS_TEST"
+add name=walled_garden_pool ranges=10.250.0.10-10.250.0.254 comment="PILOT_TAPOS_TEST"
+
+/interface vlan
+add interface=ether2 name=vlan${TEST_VLAN}-pilot vlan-id=${TEST_VLAN} comment="PILOT_TAPOS_TEST"
+
+/ppp profile
+add local-address=100.64.0.1 name=pppoe-pilot-profile use-encryption=no comment="PILOT_TAPOS_TEST"
+
+/interface pppoe-server server
+add authentication=pap,chap,mschap2 default-profile=pppoe-pilot-profile disabled=no \\
+    interface=vlan${TEST_VLAN}-pilot service-name=ISP_PILOT_TAPOS comment="PILOT_TAPOS_TEST"
+
+# [6/6] Walled Garden Captive Portal Redirect (Port 80/tcp -> Self-Care Portal)
+/ip firewall nat
+add action=dst-nat chain=dstnat dst-port=80 protocol=tcp src-address=10.250.0.0/24 \\
+    to-addresses=${target_radius_ip} to-ports=8080 comment="PILOT_TAPOS_TEST: Walled Garden Bill-Pay Redirect"
+
+# ==============================================================================
+# Quick Verification Commands on MikroTik RouterOS CLI:
+#   /radius print detail
+#   /radius incoming print
+#   /ip firewall filter print where comment~"PILOT_TAPOS_TEST"
+#   /ppp active print where user="${PILOT_USER}"
+#
+# Safe One-Liner Teardown / Cleanup Commands on MikroTik RouterOS CLI:
+#   /interface pppoe-server server remove [find comment~"PILOT_TAPOS_TEST"]
+#   /ppp profile remove [find comment~"PILOT_TAPOS_TEST"]
+#   /interface vlan remove [find comment~"PILOT_TAPOS_TEST"]
+#   /ip pool remove [find comment~"PILOT_TAPOS_TEST"]
+#   /radius remove [find comment~"PILOT_TAPOS_TEST"]
+#   /ip firewall filter remove [find comment~"PILOT_TAPOS_TEST"]
+#   /ip firewall nat remove [find comment~"PILOT_TAPOS_TEST"]
+# ==============================================================================
+EOF
+}
+
+# --- Resolve RADIUS Secret from Environment or Dotenv ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "${SCRIPT_DIR}")"
 if [[ -z "${RADIUS_SECRET}" ]]; then
-    # Try reading from repo .env or infra/.env if available
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    REPO_DIR="$(dirname "${SCRIPT_DIR}")"
     if [[ -f "${REPO_DIR}/.env" ]]; then
         RADIUS_SECRET=$(grep -E '^RADIUS_SECRET=' "${REPO_DIR}/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true)
     elif [[ -f "${REPO_DIR}/infra/.env" ]]; then
         RADIUS_SECRET=$(grep -E '^RADIUS_SECRET=' "${REPO_DIR}/infra/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true)
     fi
+fi
+
+# If user requested to only print RouterOS v7 commands, output now and exit cleanly
+if [[ "${ACTION}" == "print_ros" ]]; then
+    print_routeros_v7_commands
+    exit 0
 fi
 
 if [[ -z "${RADIUS_SECRET}" ]]; then
@@ -335,6 +442,15 @@ echo " RFC 3576 / 5176 CoA Port   : UDP ${COA_PORT}"
 echo " Pilot Test Subscriber      : ${PILOT_USER} (Rate: 20M/20M | Test VLAN ${TEST_VLAN})"
 echo " Safety Constraint          : ZERO LIVE PRODUCTION SUBSCRIBERS TOUCHED"
 echo "=============================================================================="
+
+# ==============================================================================
+# RouterOS v7 RADIUS & CoA Setup Block
+# ==============================================================================
+log_section "MikroTik RouterOS v7 RADIUS & CoA Configuration Commands"
+log_info "Apply the following CLI commands to your MikroTik RouterOS v7 / CHR router:"
+echo "------------------------------------------------------------------------------"
+print_routeros_v7_commands
+echo "------------------------------------------------------------------------------"
 
 # ==============================================================================
 # Step 1: Pre-Flight Prerequisites & Reachability Checks
@@ -465,6 +581,7 @@ if [[ ${DRY_RUN} -eq 1 ]]; then
     echo "  - PostgreSQL / Citus Cluster : Active"
     echo "  - Redis 7 Fast-Path Cache    : Active"
     echo "  - FreeRADIUS 3.x AAA Daemon  : Active"
+    echo "  - RouterOS v7 CLI commands   : Ready to paste into MikroTik terminal"
     echo "  - No database records written (Dry-Run mode enforced)."
     exit 0
 fi

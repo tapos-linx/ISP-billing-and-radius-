@@ -78,16 +78,39 @@ flowchart TD
 - [ ] **Walled Garden NAT Validation:**
   - Verify NAT rule redirects port `80/tcp` from `10.250.0.0/24` to Captive Bill-Pay Portal.
 - [ ] **Single-Subscriber Isolated Pilot (`tapos_pilot`):**
-  - Verify isolated PPPoE auth (<10ms), radacct streaming, and RFC 5176 Disconnect on VLAN 999:
+  - **MikroTik RouterOS v7 Setup (Paste into MikroTik CLI):**
+    ```routeros
+    # 1. Allow UDP 3799 CoA/Disconnect in Firewall Input Filter (Ensures CoA packets are not dropped)
+    /ip firewall filter
+    add chain=input action=accept protocol=udp dst-port=3799 src-address=<UBUNTU_IP> \
+        comment="PILOT_TAPOS_TEST: Allow RFC 5176 CoA/PoD Disconnect from Ubuntu RADIUS" place-before=1
+
+    # 2. Enable Incoming RFC 3576 / RFC 5176 CoA Listener
+    /radius incoming
+    set accept=yes port=3799
+
+    # 3. Add FreeRADIUS 3.x Client
+    /radius
+    add address=<UBUNTU_IP> service=ppp authentication-port=1812 accounting-port=1813 \
+        timeout=3000ms secret="<RADIUS_SECRET>" comment="PILOT_TAPOS_TEST: Ubuntu 24.04 FreeRADIUS"
+
+    # 4. Enable PPP AAA with 5-Minute Interim Accounting
+    /ppp aaa
+    set accounting=yes interim-update=5m use-radius=yes
+    ```
+  - **Pilot Verification Workflow:**
     ```bash
+    # Print dynamically populated RouterOS v7 CLI commands:
+    ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -m <MIKROTIK_IP> -r <RADIUS_SECRET> --print-ros
+
     # Dry-run pre-flight validation (safe, zero DB writes):
     ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -u ubuntu -i ~/.ssh/id_rsa -m <MIKROTIK_IP> -r <RADIUS_SECRET> --dry-run
 
     # Full automated pilot run (with 5-minute observation window and zero-stray rollback):
     ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -u ubuntu -i ~/.ssh/id_rsa -m <MIKROTIK_IP> -r <RADIUS_SECRET>
 
-    # Force instant rollback / teardown:
-    ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -u ubuntu -i ~/.ssh/id_rsa --rollback
+    # Force instant idempotent cleanup / teardown:
+    ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -u ubuntu -i ~/.ssh/id_rsa --cleanup
     ```
 
 ### C. T-2 Hours: Freeze Window & Team Briefing
