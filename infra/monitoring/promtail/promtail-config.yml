@@ -1,0 +1,42 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://isp_loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # 1. Laravel BSS/OSS Application Logs
+  - job_name: laravel_bss
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: laravel_bss
+          app: isp_bss_oss
+          environment: production
+          __path__: /var/log/isp/laravel*.log
+
+  # 2. FreeRADIUS AAA Engine Logs
+  - job_name: freeradius_aaa
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: freeradius
+          app: aaa_radius
+          environment: production
+          __path__: /var/log/isp/radius*.log
+
+  # 3. Docker Container Standard Output / Errors
+  - job_name: docker_containers
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker_containers
+          environment: production
+          __path__: /var/log/containers/*.log

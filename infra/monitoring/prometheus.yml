@@ -1,16 +1,41 @@
 global:
-  scrape_interval: 15s
+  scrape_interval: 10s
+  evaluation_interval: 10s
 
 rule_files:
   - /etc/prometheus/isp_sla_alerts.yml
 
 scrape_configs:
+  # Laravel BSS/OSS SLA Metrics & Probes (Access-Accept, CoA, Payment-to-Unblock)
+  - job_name: 'laravel_bss'
+    scrape_interval: 5s
+    metrics_path: '/api/v1/metrics'
+    static_configs:
+      - targets: ['laravel_bss_oss:8000']
+        labels:
+          service: 'bss_oss_api'
+          environment: 'production'
+
+  # FreeRADIUS Exporter
   - job_name: 'freeradius'
+    scrape_interval: 10s
     static_configs:
       - targets: ['freeradius_exporter:9812']
+        labels:
+          service: 'aaa_radius'
+
+  # PostgreSQL / Citus Cluster Exporter
   - job_name: 'postgresql'
+    scrape_interval: 10s
     static_configs:
       - targets: ['postgres_exporter:9187']
+        labels:
+          service: 'citus_master'
+
+  # Redis Cluster Exporter
   - job_name: 'redis'
+    scrape_interval: 10s
     static_configs:
       - targets: ['redis_exporter:9121']
+        labels:
+          service: 'redis_cluster'

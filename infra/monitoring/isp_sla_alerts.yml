@@ -1,13 +1,72 @@
 groups:
   - name: isp_billing_sla_alerts
     rules:
+      # ====================================================================
+      # 1. RADIUS Access-Accept Latency SLA Breach (< 10ms SLA Target)
+      # ====================================================================
+      - alert: RadiusAccessAcceptSlaBreach
+        expr: histogram_quantile(0.95, sum(rate(radius_access_accept_latency_seconds_bucket[5m])) by (le)) > 0.010
+        for: 5m
+        labels:
+          severity: critical
+          sla: "aaa_access_accept_10ms"
+        annotations:
+          summary: "RADIUS Access-Accept p95 latency exceeded 10ms SLA threshold"
+          description: "FreeRADIUS 95th percentile authentication latency is {{ $value | humanizeDuration }}, violating the 10ms SLA."
+
+      # ====================================================================
+      # 2. RADIUS CoA Kick Latency SLA Breach (< 500ms SLA Target)
+      # ====================================================================
+      - alert: RadiusCoaKickLatencySlaBreach
+        expr: histogram_quantile(0.95, sum(rate(radius_coa_latency_seconds_bucket[5m])) by (le)) > 0.500
+        for: 2m
+        labels:
+          severity: critical
+          sla: "coa_kick_500ms"
+        annotations:
+          summary: "RFC 5176 CoA/PoD p95 latency exceeded 500ms SLA threshold"
+          description: "Carrier CoA session disconnect / rate-change p95 latency is {{ $value | humanizeDuration }}, exceeding the 500ms SLA."
+
+      # ====================================================================
+      # 3. BSS Payment-to-Unblock Latency SLA Breach (< 3.0s SLA Target)
+      # ====================================================================
+      - alert: BssPaymentUnblockSlaBreach
+        expr: histogram_quantile(0.95, sum(rate(bss_payment_unblock_latency_seconds_bucket[5m])) by (le)) > 3.0
+        for: 2m
+        labels:
+          severity: critical
+          sla: "payment_unblock_3s"
+        annotations:
+          summary: "BSS payment-to-unblock p95 latency exceeded 3.0s SLA threshold"
+          description: "End-to-end MFS payment settlement to subscriber line unblock p95 latency is {{ $value | humanizeDuration }}, exceeding the 3.0s SLA."
+
+      # ====================================================================
+      # 4. CoA / PoD High Failure Rate (> 5%)
+      # ====================================================================
+      - alert: RadiusCoaFailureRateHigh
+        expr: (sum(rate(radius_coa_requests_total{status="failure"}[5m])) / (sum(rate(radius_coa_requests_total[5m])) > 0)) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RADIUS CoA/PoD failure rate exceeded 5%"
+          description: "More than 5% of RFC 5176 Disconnect / Change-of-Authorization requests to NAS routers are failing."
+
+      # ====================================================================
+      # 5. FreeRADIUS Engine Down or Probe Failure
+      # ====================================================================
       - alert: FreeRadiusDown
-        expr: up{job="freeradius"} == 0
+        expr: up{job="freeradius"} == 0 or radius_probe_healthy == 0
         for: 30s
         labels:
           severity: critical
         annotations:
-          summary: "FreeRADIUS AAA exporter down (>30s)"
+          summary: "FreeRADIUS AAA engine or synthetic probe is down (>30s)"
+          description: "RADIUS authentication requests are failing or exporter is unreachable."
+
+      # ====================================================================
+      # 6. Database Connection Pool Exhaustion (> 180 connections)
+      # ====================================================================
       - alert: PostgresPoolHigh
         expr: pg_stat_activity_count > 180
         for: 1m
@@ -15,6 +74,11 @@ groups:
           severity: warning
         annotations:
           summary: "PostgreSQL active connections exceeding pool threshold"
+          description: "Postgres connection pool reached {{ $value }} active sessions, approaching pool limit."
+
+      # ====================================================================
+      # 7. Redis Eviction Detected (Strict noeviction Policy Violation)
+      # ====================================================================
       - alert: RedisEvictionDetected
         expr: redis_evicted_keys_total > 0
         for: 1m
@@ -22,3 +86,4 @@ groups:
           severity: critical
         annotations:
           summary: "Redis key eviction detected (violates noeviction policy)"
+          description: "Redis evicted {{ $value }} keys. In-memory fast path and session data loss risk."

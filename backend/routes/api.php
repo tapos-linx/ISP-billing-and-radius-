@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AiCopilotController;
+use App\Http\Controllers\Api\V1\MetricsController;
 use App\Http\Controllers\Api\V1\MfsWebhookController;
 use App\Http\Middleware\VerifyMfsReplayProtection;
 use App\Jobs\ExpireOverdueSubscribersJob;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Stage 8 & 12 Complete API & Customer Portal Routes (Matches openapi.yaml)
+| Stage 8, 12 & Phase 4 Complete API & Customer Portal Routes
 |--------------------------------------------------------------------------
 */
 Route::prefix('v1')->group(function (): void {
@@ -25,6 +26,9 @@ Route::prefix('v1')->group(function (): void {
             'redis'  => (string) $redisPing,
         ]);
     });
+
+    // Phase 4: Prometheus SLA Scrape Endpoint
+    Route::get('/metrics', [MetricsController::class, 'metrics']);
 
     // MFS Fintech Webhooks (HMAC-SHA256 + Redis SETNX Nonce & Idempotency)
     Route::middleware([VerifyMfsReplayProtection::class])->group(function (): void {

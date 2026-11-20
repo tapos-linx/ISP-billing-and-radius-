@@ -1,4 +1,7 @@
 services:
+  # ====================================================================
+  # 1. Prometheus Server: Carrier SLA Metrics Engine
+  # ====================================================================
   prometheus:
     image: prom/prometheus:v2.54.1
     container_name: isp_prometheus
@@ -8,7 +11,13 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./isp_sla_alerts.yml:/etc/prometheus/isp_sla_alerts.yml:ro
     restart: always
+    networks:
+      - monitoring_net
+      - infra_isp_internal_net
 
+  # ====================================================================
+  # 2. Grafana Dashboard & NOC Visualizer
+  # ====================================================================
   grafana:
     image: grafana/grafana:11.2.2
     container_name: isp_grafana
@@ -16,21 +25,70 @@ services:
       - "${GRAFANA_BIND_IP:-127.0.0.1}:3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-changeme_in_env}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/isp_noc_sla_dashboard.json
     volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
     restart: always
+    networks:
+      - monitoring_net
+      - infra_isp_internal_net
 
+  # ====================================================================
+  # 3. Grafana Loki: Centralized Log Aggregator
+  # ====================================================================
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: isp_loki
+    ports:
+      - "${LOKI_BIND_IP:-127.0.0.1}:3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: always
+    networks:
+      - monitoring_net
+      - infra_isp_internal_net
+
+  # ====================================================================
+  # 4. Promtail: Log Shipper & Tailer
+  # ====================================================================
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: isp_promtail
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - isp_logs:/var/log/isp:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: always
+    networks:
+      - monitoring_net
+      - infra_isp_internal_net
+
+  # ====================================================================
+  # 5. PostgreSQL / Citus Cluster Exporter
+  # ====================================================================
   postgres_exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: isp_postgres_exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME:-isp_admin}:${DB_PASSWORD}@citus_master:5432/${DB_DATABASE:-isp_bss_oss}?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${DB_USERNAME:-isp_admin}:${DB_PASSWORD:-secure_isp_password_2026}@citus_master:5432/${DB_DATABASE:-isp_bss_oss}?sslmode=disable"
     ports:
       - "${PG_EXPORTER_BIND_IP:-127.0.0.1}:9187:9187"
     restart: always
+    networks:
+      - monitoring_net
+      - infra_isp_internal_net
 
+  # ====================================================================
+  # 6. Redis Cluster Exporter
+  # ====================================================================
   redis_exporter:
     image: oliver006/redis_exporter:latest
     container_name: isp_redis_exporter
@@ -40,11 +98,30 @@ services:
     ports:
       - "${REDIS_EXPORTER_BIND_IP:-127.0.0.1}:9121:9121"
     restart: always
+    networks:
+      - monitoring_net
+      - infra_isp_internal_net
 
+  # ====================================================================
+  # 7. FreeRADIUS Status Exporter
+  # ====================================================================
   freeradius_exporter:
     image: esutwo/freeradius-exporter:latest
     container_name: isp_freeradius_exporter
-    command: ["--radius.address=freeradius_aaa:18121", "--radius.secret=${RADIUS_STATUS_SECRET}"]
+    command: ["--radius.address=freeradius_aaa:18121", "--radius.secret=${RADIUS_STATUS_SECRET:-adminsecret}"]
     ports:
       - "${RADIUS_EXPORTER_BIND_IP:-127.0.0.1}:9812:9812"
     restart: always
+    networks:
+      - monitoring_net
+      - infra_isp_internal_net
+
+networks:
+  monitoring_net:
+    driver: bridge
+  infra_isp_internal_net:
+    external: true
+
+volumes:
+  loki_data:
+  isp_logs:

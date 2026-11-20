@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Audit\BillingAuditService;
 use App\Services\Ledger\DoubleEntryLedgerService;
+use App\Services\Metrics\PrometheusMetricsService;
 use App\Services\Radius\RadiusCoaService;
 use App\Services\Radius\RadiusSyncService;
 use Illuminate\Http\JsonResponse;
@@ -19,10 +20,11 @@ use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 
 /**
- * Phase 3 Hardened MFS Webhook Controller:
+ * Phase 4 Instrumented MFS Webhook Controller:
  * Enforces HMAC-SHA256 verification, Redis SETNX deduplication,
  * Double-Entry General Ledger settlement (DR Cash, CR Accounts Receivable),
  * Immutable Audit Logging, NBR Mushak-6.3 VAT compliance, and RFC 5176 CoA session unblock.
+ * Measures end-to-end payment-to-unblock latency against the 3.0s SLA target.
  */
 final class MfsWebhookController extends Controller
 {
@@ -30,7 +32,8 @@ final class MfsWebhookController extends Controller
         private readonly RadiusSyncService $radiusSync,
         private readonly RadiusCoaService $radiusCoa,
         private readonly DoubleEntryLedgerService $ledgerService,
-        private readonly BillingAuditService $auditService
+        private readonly BillingAuditService $auditService,
+        private readonly PrometheusMetricsService $metricsService
     ) {}
 
     public function handleBkash(Request $request): JsonResponse
@@ -86,11 +89,13 @@ final class MfsWebhookController extends Controller
 
     private function processWebhook(Request $request, string $gateway, string $secret): JsonResponse
     {
+        $startTime = microtime(true);
         $signature = (string) ($request->header('X-Webhook-Signature') ?: $request->header('X-MFS-Signature', ''));
         $rawContent = (string) $request->getContent();
         $expected = hash_hmac('sha256', $rawContent, $secret);
 
         if (!hash_equals($expected, $signature)) {
+            $this->metricsService->incrementCounter('bss_payments_processed_total', ['gateway' => $gateway, 'status' => 'rejected']);
             Log::warning("MFS Webhook invalid HMAC signature", [
                 'gateway'   => $gateway,
                 'ip'        => $request->ip(),
@@ -110,6 +115,8 @@ final class MfsWebhookController extends Controller
         $lockKey = "webhook:{$gateway}:{$data['trx_id']}";
         $acquired = Redis::set($lockKey, '1', 'EX', 86400 * 7, 'NX');
         if (!$acquired) {
+            $duration = microtime(true) - $startTime;
+            $this->metricsService->recordPaymentUnblockLatency($duration, $gateway, 'duplicate');
             Log::info("MFS Webhook duplicate transaction ignored", [
                 'gateway' => $gateway,
                 'trx_id'  => $data['trx_id'],
@@ -296,6 +303,10 @@ final class MfsWebhookController extends Controller
                 Log::info("CoA dispatch recorded: " . $e->getMessage());
             }
         }
+
+        // Measure end-to-end unblock time
+        $duration = microtime(true) - $startTime;
+        $this->metricsService->recordPaymentUnblockLatency($duration, $gateway, 'accepted');
 
         return response()->json([
             'status'  => 'accepted',

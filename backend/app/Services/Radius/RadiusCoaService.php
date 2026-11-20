@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Radius;
 
+use App\Services\Metrics\PrometheusMetricsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -11,14 +12,24 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Stage 8 Vertical Slice 3:
+ * Phase 4 Instrumented CoA Service:
  * Dispatches RFC 5176 Change-of-Authorization (CoA) and Disconnect-Request (PoD)
- * packets over UDP port 3799 (<500ms target).
+ * packets over UDP port 3799 (<500ms SLA target).
+ * Records real-time Prometheus latency & success/failure metrics.
  * Dead-letters failed attempts to `failed_coa_jobs` table.
  */
 class RadiusCoaService
 {
     private const DEFAULT_COA_PORT = 3799;
+
+    public function __construct(
+        private readonly ?PrometheusMetricsService $metricsService = null
+    ) {}
+
+    private function getMetrics(): PrometheusMetricsService
+    {
+        return $this->metricsService ?? app(PrometheusMetricsService::class);
+    }
 
     /**
      * Terminate an active subscriber PPPoE session (PoD).
@@ -139,17 +150,30 @@ class RadiusCoaService
         $target = "{$nasIp}:{$coaPort}";
         $radclientBin = config('radius.radclient_bin', 'radclient');
 
-        $result = Process::input($attributes)
-            ->timeout(2)
-            ->run([$radclientBin, '-r', '1', '-t', '1', $target, $packetType, $secret]);
+        $start = microtime(true);
+        try {
+            $result = Process::input($attributes)
+                ->timeout(2)
+                ->run([$radclientBin, '-r', '1', '-t', '1', $target, $packetType, $secret]);
 
-        if (!$result->successful()) {
-            throw new RuntimeException(
-                "RADIUS {$packetType} failed for {$target}: " . trim($result->errorOutput() ?: $result->output())
-            );
+            $duration = microtime(true) - $start;
+
+            if (!$result->successful()) {
+                $this->getMetrics()->recordCoaLatency($duration, $packetType, false);
+                throw new RuntimeException(
+                    "RADIUS {$packetType} failed for {$target}: " . trim($result->errorOutput() ?: $result->output())
+                );
+            }
+
+            $success = str_contains($result->output(), 'Received Disconnect-ACK')
+                || str_contains($result->output(), 'Received CoA-ACK');
+
+            $this->getMetrics()->recordCoaLatency($duration, $packetType, $success);
+            return $success;
+        } catch (Throwable $e) {
+            $duration = microtime(true) - $start;
+            $this->getMetrics()->recordCoaLatency($duration, $packetType, false);
+            throw $e;
         }
-
-        return str_contains($result->output(), 'Received Disconnect-ACK')
-            || str_contains($result->output(), 'Received CoA-ACK');
     }
 }
