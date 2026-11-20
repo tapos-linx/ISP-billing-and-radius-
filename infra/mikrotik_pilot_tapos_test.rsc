@@ -27,22 +27,23 @@ add authentication=pap,chap,mschap2 default-profile=pppoe-pilot-profile disabled
 
 # 5. RADIUS Client pointing to Ubuntu 24.04 FreeRADIUS (Over WireGuard / Management VIP)
 /radius
-add address=10.10.0.10 secret="REPLACE_WITH_RADIUS_SECRET" service=ppp timeout=3000ms \
-    authentication-port=1812 accounting-port=1813 comment="PILOT_TAPOS_TEST"
+add address=10.10.0.10 secret="REPLACE_WITH_RADIUS_SECRET" service=ppp,hotspot,login timeout=3s \
+    authentication-port=1812 accounting-port=1813 comment="PILOT_TAPOS_TEST: Ubuntu 24.04 FreeRADIUS"
 
 # 6. Incoming RFC 5176 CoA / PoD Disconnect (UDP 3799)
 /radius incoming
 set accept=yes port=3799
 
 # 6.1 Allow Incoming RFC 5176 CoA / PoD Disconnect (UDP 3799) in Firewall Filter
-# Ensures UDP 3799 packets from the Ubuntu RADIUS server are NOT dropped by MikroTik input filter
+# SECURITY: Strictly restricted to src-address=10.10.0.10 (never 0.0.0.0/0) to prevent unauthorized disconnect attacks
+# place-before=0 ensures packets are accepted before default drop rules
 /ip firewall filter
-add chain=input action=accept protocol=udp dst-port=3799 src-address=10.10.0.10 \
-    comment="PILOT_TAPOS_TEST: Allow RFC 5176 CoA/PoD Disconnect from FreeRADIUS" place-before=1
+add chain=input protocol=udp dst-port=3799 src-address=10.10.0.10 action=accept place-before=0 \
+    comment="Allow FreeRADIUS CoA UDP 3799 from Ubuntu BSS"
 
 # 7. AAA Accounting with 5-Minute Interim Updates (BTRC 2-Year Retention Stream)
 /ppp aaa
-set accounting=yes interim-update=5m use-radius=yes
+set use-radius=yes accounting=yes interim-update=5m
 
 # 8. Walled Garden Bill-Pay Captive Portal Redirect (Port 80/tcp -> Self-Care Portal)
 /ip firewall nat
@@ -57,6 +58,7 @@ add action=dst-nat chain=dstnat dst-port=80 protocol=tcp src-address=10.250.0.0/
 # /ip pool remove [find comment~"PILOT_TAPOS_TEST"]
 # /interface vlan remove [find comment~"PILOT_TAPOS_TEST"]
 # /radius remove [find comment~"PILOT_TAPOS_TEST"]
+# /ip firewall filter remove [find comment~"Allow FreeRADIUS CoA"]
 # /ip firewall filter remove [find comment~"PILOT_TAPOS_TEST"]
 # /ip firewall nat remove [find comment~"PILOT_TAPOS_TEST"]
 # ==============================================================================

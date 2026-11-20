@@ -80,23 +80,24 @@ flowchart TD
 - [ ] **Single-Subscriber Isolated Pilot (`tapos_pilot`):**
   - **MikroTik RouterOS v7 Setup (Paste into MikroTik CLI):**
     ```routeros
-    # 1. Allow UDP 3799 CoA/Disconnect in Firewall Input Filter (Ensures CoA packets are not dropped)
+    # 1. Allow UDP 3799 CoA/Disconnect in Firewall Input Filter
+    # SECURITY: Restricted exclusively to src-address=<UBUNTU_IP> (never 0.0.0.0/0). place-before=0 puts rule at top.
     /ip firewall filter
-    add chain=input action=accept protocol=udp dst-port=3799 src-address=<UBUNTU_IP> \
-        comment="PILOT_TAPOS_TEST: Allow RFC 5176 CoA/PoD Disconnect from Ubuntu RADIUS" place-before=1
+    add chain=input protocol=udp dst-port=3799 src-address=<UBUNTU_IP> action=accept place-before=0 \
+        comment="Allow FreeRADIUS CoA UDP 3799 from Ubuntu BSS"
 
     # 2. Enable Incoming RFC 3576 / RFC 5176 CoA Listener
     /radius incoming
     set accept=yes port=3799
 
-    # 3. Add FreeRADIUS 3.x Client
+    # 3. Add FreeRADIUS 3.x Client (service=ppp,hotspot,login, timeout=3s)
     /radius
-    add address=<UBUNTU_IP> service=ppp authentication-port=1812 accounting-port=1813 \
-        timeout=3000ms secret="<RADIUS_SECRET>" comment="PILOT_TAPOS_TEST: Ubuntu 24.04 FreeRADIUS"
+    add address=<UBUNTU_IP> service=ppp,hotspot,login authentication-port=1812 accounting-port=1813 \
+        timeout=3s secret="<RADIUS_SECRET>" comment="PILOT_TAPOS_TEST: Ubuntu 24.04 FreeRADIUS"
 
-    # 4. Enable PPP AAA with 5-Minute Interim Accounting
+    # 4. Enable PPP AAA with 5-Minute Interim Accounting (Real-time byte counter sync to Citus radacct)
     /ppp aaa
-    set accounting=yes interim-update=5m use-radius=yes
+    set use-radius=yes accounting=yes interim-update=5m
     ```
   - **Pilot Verification Workflow:**
     ```bash

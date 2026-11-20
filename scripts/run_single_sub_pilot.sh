@@ -277,31 +277,45 @@ print_routeros_v7_commands() {
 # Dedicated Test VLAN  : VLAN ${TEST_VLAN} (Interface ether2)
 # ==============================================================================
 
-# [1/6] Allow UDP ${COA_PORT} CoA / Disconnect-Requests in Firewall Input Filter
-# (CRITICAL: Place rule before default drop rules so RFC 5176 packets from Ubuntu are not dropped)
+# ------------------------------------------------------------------------------
+# PART 1: Firewall Filter - Allow RFC 5176 CoA / Disconnect (UDP ${COA_PORT})
+# SECURITY CRITICAL: UDP ${COA_PORT} is strictly restricted to src-address=${target_radius_ip}.
+# NEVER open UDP ${COA_PORT} to 0.0.0.0/0 to prevent unauthorized session disconnect attacks.
+# place-before=0 places rule at index 0 before default drop rules.
+# ------------------------------------------------------------------------------
 /ip firewall filter
-add chain=input action=accept protocol=udp dst-port=${COA_PORT} src-address=${target_radius_ip} \\
-    comment="PILOT_TAPOS_TEST: Allow RFC 5176 CoA/PoD Disconnect from Ubuntu RADIUS" place-before=1
+add chain=input protocol=udp dst-port=${COA_PORT} src-address=${target_radius_ip} action=accept place-before=0 \\
+    comment="Allow FreeRADIUS CoA UDP ${COA_PORT} from Ubuntu BSS"
 
-# [2/6] Enable Incoming RFC 3576 / RFC 5176 CoA & Disconnect Listener
+# ------------------------------------------------------------------------------
+# PART 2: RADIUS Incoming - Enable RFC 3576 / RFC 5176 CoA & Disconnect Listener
+# ------------------------------------------------------------------------------
 /radius incoming
 set accept=yes port=${COA_PORT}
 
-# [3/6] Register Ubuntu 24.04 FreeRADIUS 3.x Client
+# ------------------------------------------------------------------------------
+# PART 3: RADIUS Client - Register Ubuntu 24.04 FreeRADIUS 3.x Server
+# Services: ppp,hotspot,login | Ports: Auth UDP ${AUTH_PORT}, Acct UDP ${ACCT_PORT} | Timeout: 3s
+# ------------------------------------------------------------------------------
 /radius
 add address=${target_radius_ip} \\
-    service=ppp \\
+    service=ppp,hotspot,login \\
     authentication-port=${AUTH_PORT} \\
     accounting-port=${ACCT_PORT} \\
-    timeout=3000ms \\
+    timeout=3s \\
     secret="${secret_val}" \\
     comment="PILOT_TAPOS_TEST: Ubuntu 24.04 FreeRADIUS"
 
-# [4/6] Enable PPP AAA with 5-Minute Interim Accounting Stream (BTRC Compliance)
+# ------------------------------------------------------------------------------
+# PART 4: PPP AAA - Enable RADIUS Authentication & 5-Minute Interim Accounting
+# Streams real-time byte counters to Citus radacct for BTRC 2-year retention.
+# ------------------------------------------------------------------------------
 /ppp aaa
-set accounting=yes interim-update=5m use-radius=yes
+set use-radius=yes accounting=yes interim-update=5m
 
-# [5/6] Create Sandbox IP Pools & PPPoE Server Bound to Test VLAN ${TEST_VLAN}
+# ------------------------------------------------------------------------------
+# PART 5: Sandbox IP Pools, Isolated Test VLAN ${TEST_VLAN} & Dedicated PPP Profile
+# ------------------------------------------------------------------------------
 /ip pool
 add name=pppoe_active_pool ranges=100.64.0.10-100.64.15.254 comment="PILOT_TAPOS_TEST"
 add name=walled_garden_pool ranges=10.250.0.10-10.250.0.254 comment="PILOT_TAPOS_TEST"
@@ -316,7 +330,9 @@ add local-address=100.64.0.1 name=pppoe-pilot-profile use-encryption=no comment=
 add authentication=pap,chap,mschap2 default-profile=pppoe-pilot-profile disabled=no \\
     interface=vlan${TEST_VLAN}-pilot service-name=ISP_PILOT_TAPOS comment="PILOT_TAPOS_TEST"
 
-# [6/6] Walled Garden Captive Portal Redirect (Port 80/tcp -> Self-Care Portal)
+# ------------------------------------------------------------------------------
+# PART 6: Walled Garden Captive Portal Redirect (Port 80/tcp -> Self-Care Portal)
+# ------------------------------------------------------------------------------
 /ip firewall nat
 add action=dst-nat chain=dstnat dst-port=80 protocol=tcp src-address=10.250.0.0/24 \\
     to-addresses=${target_radius_ip} to-ports=8080 comment="PILOT_TAPOS_TEST: Walled Garden Bill-Pay Redirect"
@@ -325,7 +341,7 @@ add action=dst-nat chain=dstnat dst-port=80 protocol=tcp src-address=10.250.0.0/
 # Quick Verification Commands on MikroTik RouterOS CLI:
 #   /radius print detail
 #   /radius incoming print
-#   /ip firewall filter print where comment~"PILOT_TAPOS_TEST"
+#   /ip firewall filter print where comment~"Allow FreeRADIUS CoA"
 #   /ppp active print where user="${PILOT_USER}"
 #
 # Safe One-Liner Teardown / Cleanup Commands on MikroTik RouterOS CLI:
@@ -334,6 +350,7 @@ add action=dst-nat chain=dstnat dst-port=80 protocol=tcp src-address=10.250.0.0/
 #   /interface vlan remove [find comment~"PILOT_TAPOS_TEST"]
 #   /ip pool remove [find comment~"PILOT_TAPOS_TEST"]
 #   /radius remove [find comment~"PILOT_TAPOS_TEST"]
+#   /ip firewall filter remove [find comment~"Allow FreeRADIUS CoA"]
 #   /ip firewall filter remove [find comment~"PILOT_TAPOS_TEST"]
 #   /ip firewall nat remove [find comment~"PILOT_TAPOS_TEST"]
 # ==============================================================================
