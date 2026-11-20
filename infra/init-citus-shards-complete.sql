@@ -117,14 +117,36 @@ CREATE TABLE IF NOT EXISTS invoices (
     invoice_id UUID NOT NULL DEFAULT gen_random_uuid(),
     subscriber_id UUID NOT NULL,
     tenant_id INT NOT NULL,
+    subtotal_bdt NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    vat_rate_percent NUMERIC(5, 2) NOT NULL DEFAULT 5.00,
+    vat_amount_bdt NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    total_bdt NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     amount_bdt NUMERIC(10, 2) NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'unpaid', -- unpaid | paid | overdue
+    isp_bin_number VARCHAR(32),
+    mushak_6_3_number VARCHAR(64),
+    customer_bin_nid VARCHAR(32),
     due_date TIMESTAMPTZ NOT NULL,
     paid_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (invoice_id, subscriber_id)
 );
 SELECT create_distributed_table('invoices', 'subscriber_id', colocate_with := 'subscribers');
+CREATE INDEX IF NOT EXISTS idx_invoices_mushak ON invoices (mushak_6_3_number);
+
+CREATE TABLE IF NOT EXISTS btrc_audit_logs (
+    id BIGSERIAL,
+    subscriber_id UUID NOT NULL,
+    actor_type VARCHAR(32) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    framed_ip INET,
+    metadata JSONB,
+    retained_until TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id, subscriber_id)
+);
+SELECT create_distributed_table('btrc_audit_logs', 'subscriber_id', colocate_with := 'subscribers');
+CREATE INDEX IF NOT EXISTS idx_btrc_retention ON btrc_audit_logs (retained_until);
 
 CREATE TABLE IF NOT EXISTS payment_webhooks (
     webhook_id UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -138,6 +160,16 @@ CREATE TABLE IF NOT EXISTS payment_webhooks (
     PRIMARY KEY (webhook_id, subscriber_id)
 );
 SELECT create_distributed_table('payment_webhooks', 'subscriber_id', colocate_with := 'subscribers');
+
+CREATE TABLE IF NOT EXISTS failed_coa_jobs (
+    id BIGSERIAL PRIMARY KEY,
+    subscriber_id UUID NOT NULL,
+    username VARCHAR(128) NOT NULL,
+    nas_ip VARCHAR(64) NOT NULL,
+    action VARCHAR(32) NOT NULL,
+    error_reason TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS ont_devices (
     ont_id UUID NOT NULL DEFAULT gen_random_uuid(),

@@ -42,44 +42,58 @@ final class RadiusSyncService
         $targetPool = $isActive ? self::ACTIVE_POOL : self::WALLED_GARDEN_POOL;
 
         DB::transaction(function () use ($subscriber, $username, $targetPool): void {
+            $subId = $subscriber['subscriber_id'];
+
             // 1. Upsert Cleartext-Password in co-located radcheck (128 shards on subscriber_id)
-            DB::table('radcheck')->updateOrInsert(
-                [
-                    'subscriber_id' => $subscriber['subscriber_id'],
+            $updatedPwd = DB::table('radcheck')
+                ->where('subscriber_id', $subId)
+                ->where('username', $username)
+                ->where('attribute', 'Cleartext-Password')
+                ->update(['op' => ':=', 'value' => $subscriber['password']]);
+
+            if ($updatedPwd === 0) {
+                DB::table('radcheck')->insert([
+                    'subscriber_id' => $subId,
                     'username'      => $username,
                     'attribute'     => 'Cleartext-Password',
-                ],
-                [
-                    'op'    => ':=',
-                    'value' => $subscriber['password'],
-                ]
-            );
+                    'op'            => ':=',
+                    'value'         => $subscriber['password'],
+                ]);
+            }
 
             // 2. Upsert Mikrotik-Rate-Limit in co-located radreply
-            DB::table('radreply')->updateOrInsert(
-                [
-                    'subscriber_id' => $subscriber['subscriber_id'],
+            $updatedRate = DB::table('radreply')
+                ->where('subscriber_id', $subId)
+                ->where('username', $username)
+                ->where('attribute', 'Mikrotik-Rate-Limit')
+                ->update(['op' => ':=', 'value' => $subscriber['rate_limit']]);
+
+            if ($updatedRate === 0) {
+                DB::table('radreply')->insert([
+                    'subscriber_id' => $subId,
                     'username'      => $username,
                     'attribute'     => 'Mikrotik-Rate-Limit',
-                ],
-                [
-                    'op'    => ':=',
-                    'value' => $subscriber['rate_limit'],
-                ]
-            );
+                    'op'            => ':=',
+                    'value'         => $subscriber['rate_limit'],
+                ]);
+            }
 
             // 3. Upsert Framed-Pool (active vs walled_garden_pool)
-            DB::table('radreply')->updateOrInsert(
-                [
-                    'subscriber_id' => $subscriber['subscriber_id'],
+            $updatedPool = DB::table('radreply')
+                ->where('subscriber_id', $subId)
+                ->where('username', $username)
+                ->where('attribute', 'Framed-Pool')
+                ->update(['op' => ':=', 'value' => $targetPool]);
+
+            if ($updatedPool === 0) {
+                DB::table('radreply')->insert([
+                    'subscriber_id' => $subId,
                     'username'      => $username,
                     'attribute'     => 'Framed-Pool',
-                ],
-                [
-                    'op'    => ':=',
-                    'value' => $targetPool,
-                ]
-            );
+                    'op'            => ':=',
+                    'value'         => $targetPool,
+                ]);
+            }
         });
 
         // 4. Refresh Redis 7 Fast-Path cache outside DB lock

@@ -1,6 +1,6 @@
 # Stage 12: Zero-Downtime Production Cutover & Rollback Runbook
 
-**Project:** ISP Billing Service & FreeRADIUS Automation (Carrier Scale 1M–10M)  
+**Project:** ISP Billing Service & FreeRADIUS Automation (Carrier Scale 1Mâ€“10M)  
 **Lead Architect & Owner:** Tapos (N M Hedyetullah Tapos)  
 **Target Environment:** Ubuntu 24.04 LTS On-Premises / Dedicated Servers + MikroTik RouterOS v7 BNG/CCR  
 **Date:** 20 November 2026 | **Version:** 1.0.0  
@@ -88,9 +88,9 @@ flowchart TD
 
 ---
 
-## 3. Maintenance Window Execution (03:00 AM – 04:30 AM Asia/Dhaka)
+## 3. Maintenance Window Execution (03:00 AM â€“ 04:30 AM Asia/Dhaka)
 
-### Phase 1: Database LSN & Cache Synchronization (03:00 – 03:15 AM)
+### Phase 1: Database LSN & Cache Synchronization (03:00 â€“ 03:15 AM)
 1. **Lock legacy subscriber write-plane:**
    ```bash
    # Enable maintenance mode on legacy billing system
@@ -110,7 +110,7 @@ flowchart TD
 
 ---
 
-### Phase 2: FreeRADIUS Dual-Node VIP Activation (03:15 – 03:30 AM)
+### Phase 2: FreeRADIUS Dual-Node VIP Activation (03:15 â€“ 03:30 AM)
 1. **Start Primary & Secondary FreeRADIUS daemons:**
    ```bash
    # Node 1 & Node 2
@@ -122,17 +122,17 @@ flowchart TD
    ```
 3. **Execute local AAA verification probe:**
    ```bash
-   radtest tapos_test Tapos@2026 10.10.0.10 0 secure_radius_secret_key_2026
+   radtest tapos_test Tapos@2026 10.10.0.10 0 ${RADIUS_SECRET}
    # EXPECT: Received Access-Accept in <10ms
    ```
 
 ---
 
-### Phase 3: MikroTik BRAS / CCR Live Switchover (03:30 – 03:50 AM)
+### Phase 3: MikroTik BRAS / CCR Live Switchover (03:30 â€“ 03:50 AM)
 1. **Add new FreeRADIUS Cluster to MikroTik CCR:**
    ```routeros
    /radius
-   add address=10.10.0.10 secret="secure_radius_secret_key_2026" service=ppp timeout=3000ms authentication-port=1812 accounting-port=1813 comment="NEW_HA_FREERADIUS_VIP"
+   add address=10.10.0.10 secret="${RADIUS_SECRET}" service=ppp timeout=3000ms authentication-port=1812 accounting-port=1813 comment="NEW_HA_FREERADIUS_VIP"
    ```
 2. **Switch active PPP authentication order:**
    ```routeros
@@ -147,13 +147,13 @@ flowchart TD
 4. **Trigger test RFC 5176 Disconnect (PoD) on Canary VLAN 999 ONT:**
    ```bash
    # From Ubuntu BSS Server
-   printf 'User-Name = "canary_test"\n' | radclient -r 2 -t 1 10.10.0.2:3799 disconnect secure_radius_secret_key_2026
+   printf 'User-Name = "canary_test"\n' | radclient -r 2 -t 1 10.10.0.2:3799 disconnect ${RADIUS_SECRET}
    # EXPECT: Received Disconnect-ACK within <500ms
    ```
 
 ---
 
-### Phase 4: Fintech & End-to-End SLA Validation (03:50 – 04:15 AM)
+### Phase 4: Fintech & End-to-End SLA Validation (03:50 â€“ 04:15 AM)
 1. **Send Mock MFS Webhook Payment:**
    ```bash
    curl -s -X POST http://127.0.0.1:8000/api/v1/webhooks/bkash \
@@ -169,7 +169,7 @@ flowchart TD
 
 ---
 
-### Phase 5: Production Go-Live Sign-Off (04:15 – 04:30 AM)
+### Phase 5: Production Go-Live Sign-Off (04:15 â€“ 04:30 AM)
 1. **Disable legacy RADIUS entry on MikroTik:**
    ```routeros
    /radius set [find comment="LEGACY_RADIUS"] disabled=yes
@@ -217,3 +217,4 @@ flowchart TD
 - **BTRC IPDR Logging:** Verify RADIUS `radacct` stream is actively populating and retained for 2 years per regulatory mandates.
 - **NBR Mushak-6.3 Audit:** Ensure all generated invoices correctly compute 5%/15% VAT and record ISP BIN.
 - **24-Hour Observation:** NOC engineer on continuous telemetry watch with Gemini AI Copilot (`/api/v1/ai/diagnose`) on standby.
+
