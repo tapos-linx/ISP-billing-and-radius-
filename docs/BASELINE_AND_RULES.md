@@ -54,7 +54,7 @@
 | **8. Build (Vibe Loop)** | १०-ধাপের Execution Loop (Context → Inspect → Plan → Approve → Implement → Verify → Commit) | Vertical slices: AAA Core → BSS API → CoA/PoD → MFS Webhooks | প্রতিটি স্লাইস ইউনিট/ইন্টিগ্রেশন টেস্ট ও ডিফ রিভিউ পাস |
 | **9. QA & Hardening** | Docker + MikroTik CHR + `radtest` + Mock MFS + `verify_ai_endpoints.py` লোড ও সিকিউরিটি টেস্ট | `docs/08-qa/TEST_STRATEGY.md`, `RELEASE_TEST_REPORT.md` | ক্রিটিক্যাল বাগ শূন্য; সিমুলেটেড SLA পাস |
 | **10. Deployment** | Cloud Run CI/CD + GCE FreeRADIUS + WireGuard + Rollback Runbook | `docs/09-ops/CI_CD.md`, `DEPLOYMENT_RUNBOOK.md`, `ROLLBACK_PLAN.md` | স্টেজিং সাইন-অফ ও ব্যাকআপ রিস্টোর ভেরিফাইড |
-| **11. Production Ops** | Cloud Monitoring, Zabbix 7.0 SNMP, ClickHouse IPDR, SLO/SLI ও DR Drill | `docs/10-production/OBSERVABILITY.md`, `SLO_SLI.md`, `DR_PLAN.md` | ২৪/৭ মনিটরিং ও অ্যালার্টিং সক্রিয় |
+| **11. Production Ops / Cloud Staging** | Cloud Staging (GCP/AWS) — **DEFERRED (Using Local Docker + On-Prem Path)**; scripts intact | `infra/cloudbuild.yaml`, `deploy_stage11_gcp.ps1`, `infra/aws/` | লোকাল ডকার ও অন-প্রিম পাথ দিয়ে সম্পূর্ণ ভেরিফাইড; ক্লাউড বিলিং স্থগিত |
 | **12. Evolution** | ফিডব্যাক ট্রায়াজ, টেকনিক্যাল ডেট, পোস্টমর্টেম ও রোডম্যাপ আপডেট | `docs/11-evolution/PRODUCT_ROADMAP.md`, `TECHNICAL_DEBT.md`, `CHANGELOG.md` | পরবর্তী ইটারেশন অনুমোদিত |
 
 ---

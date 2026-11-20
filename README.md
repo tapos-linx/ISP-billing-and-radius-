@@ -71,11 +71,30 @@
 
 | Stage | Days | Title | Key Technologies | Verified Target SLA |
 |---|---|---|---|---|
-| **Stage 1** | Days 1â€“5 | **Foundation & RADIUS Core** | Docker Compose, PostgreSQL 16 Partitioning, Redis 7, FreeRADIUS 3.2 rlm_sql | **< 10ms** Access-Accept query |
-| **Stage 2** | Days 6â€“12 | **BSS Engine & Framework** | Laravel 11, FilamentPHP v3, Eloquent Observers, Dual-Sync Transactions | **< 50ms** Observer sync |
-| **Stage 3** | Days 13â€“18 | **RFC 3576 CoA & REST Automation** | UDP 3799 PoD Service, RouterOS v7 REST, Horizon Queues | **< 500ms** Session kick latency |
-| **Stage 4** | Days 19â€“24 | **Billing & MFS Webhook Auto-Unblock** | Scheduled Expiry, HMAC-SHA256, bKash / Nagad Webhooks | **< 3.0s** Payment-to-unblock |
-| **Stage 5** | Days 25â€“28 | **Self-Care PWA & Hardening** | Inertia.js + Vue 3, DomPDF, MinIO S3 Backups, Windows Firewall | **99.9%** High Availability |
+| **Stage 1** | Days 1–5 | **Foundation & RADIUS Core** | Docker Compose, PostgreSQL 16 Partitioning, Redis 7, FreeRADIUS 3.2 rlm_sql | **< 10ms** Access-Accept query |
+| **Stage 2** | Days 6–12 | **BSS Engine & Framework** | Laravel 11, FilamentPHP v3, Eloquent Observers, Dual-Sync Transactions | **< 50ms** Observer sync |
+| **Stage 3** | Days 13–18 | **RFC 3576 CoA & REST Automation** | UDP 3799 PoD Service, RouterOS v7 REST, Horizon Queues | **< 500ms** Session kick latency |
+| **Stage 4** | Days 19–24 | **Billing & MFS Webhook Auto-Unblock** | Scheduled Expiry, HMAC-SHA256, bKash / Nagad Webhooks | **< 3.0s** Payment-to-unblock |
+| **Stage 5** | Days 25–28 | **Self-Care PWA & Hardening** | Inertia.js + Vue 3, DomPDF, MinIO S3 Backups, Windows Firewall | **99.9%** High Availability |
+
+---
+
+### Master Delivery Status Tracker (Stages 1–12)
+
+| Stage | Scope & Description | Target Environment | Status | Verification Evidence |
+| :--- | :--- | :--- | :--- | :--- |
+| **Stage 1** | Foundation & RADIUS Core | Local Docker / Citus PG16 / FreeRADIUS 3.x | **VERIFIED** | `radtest` <10ms SQL auth |
+| **Stage 2** | BSS Framework & Filament Admin | Laravel 11 / Horizon / Dual-Sync | **VERIFIED** | PHPUnit sync & observers pass |
+| **Stage 3** | RFC 5176 CoA / Disconnect | UDP 3799 / MikroTik RouterOS v7 | **VERIFIED** | `radclient` / `coa_sim.py` <500ms |
+| **Stage 4** | MFS Webhook Settlement & NBR VAT | bKash / Nagad HMAC-SHA256 & SETNX | **VERIFIED** | Mushak-6.3 auto-settle <3s |
+| **Stage 5** | Subscriber Self-Care PWA & 2FA | Inertia.js + Vue 3 / TOTP Challenge | **VERIFIED** | Offline PWA manifest + 2FA |
+| **Stage 6** | Security & STRIDE Threat Model | Zero hardcoded secrets / IP restriction | **VERIFIED** | `scrub_hardcoded_secrets.ps1` clean |
+| **Stage 7** | WBS & Repository Setup | Monorepo structure / CI / `.cursorrules` | **VERIFIED** | Complete project scaffolding |
+| **Stage 8** | Vibe Execution Loops | Vertical slices across AAA & BSS | **VERIFIED** | 10-step loop compliance |
+| **Stage 9** | QA, Benchmarking & Testing Lab | Virtual MikroTik CHR / Docker Compose | **VERIFIED** | 100% test pass in Docker lab |
+| **Stage 10**| On-Prem HA Architecture & Storage | Keepalived VIP 10.10.0.10, pgBackRest | **VERIFIED** | HA runbook & restore drill pass |
+| **Stage 11**| Cloud Staging (Google Cloud / AWS) | Cloud Run, GCE, Secret Manager, AWS EC2 | **DEFERRED (Using Local Docker + On-Prem Path)** | Cloudbuild & scripts preserved intact for future cloud adoption |
+| **Stage 12**| On-Prem Cutover & Production Prep | Ubuntu 24.04 + MikroTik RouterOS v7 | **VERIFIED / READY** | Single-sub pilot runner + Cutover Runbook |
 
 ---
 

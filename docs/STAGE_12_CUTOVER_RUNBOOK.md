@@ -3,6 +3,7 @@
 **Project:** ISP Billing Service & FreeRADIUS Automation (Carrier Scale 1Mâ€“10M)  
 **Lead Architect & Owner:** Tapos (N M Hedyetullah Tapos)  
 **Target Environment:** Ubuntu 24.04 LTS On-Premises / Dedicated Servers + MikroTik RouterOS v7 BNG/CCR  
+**Cloud Staging Status:** Stage 11 (GCP / AWS) is DEFERRED (Using Local Docker + On-Prem Path); scripts preserved intact  
 **Date:** 20 November 2026 | **Version:** 1.0.0  
 **Baseline & Base Rule:** [docs/BASELINE_AND_RULES.md](BASELINE_AND_RULES.md)  
 
