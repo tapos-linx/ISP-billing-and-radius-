@@ -18,3 +18,7 @@ infra/secrets/
 *.key
 *.secret
 
+# Dynamic backups
+backups/
+
+

@@ -8,11 +8,11 @@ secrets:
 
 services:
   # ====================================================================
-  # PostgreSQL 16: Monthly Partitioned radacct & High-Speed Lookups
+  # 1. PostgreSQL 16 Primary: WAL Replication & Partitioned radacct
   # ====================================================================
-  postgres:
+  postgres_primary:
     image: postgres:16-alpine
-    container_name: isp_postgres
+    container_name: isp_postgres_primary
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-isp_billing}
@@ -20,17 +20,22 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       PGDATA: /var/lib/postgresql/data/pgdata
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-ReplSecret2026!}
     secrets:
       - db_password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./stage1/sql/00-init-replication.sh:/docker-entrypoint-initdb.d/00-init-replication.sh:ro
       - ./stage1/sql/01-init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
       - ./stage1/sql/02-seed-test-data.sql:/docker-entrypoint-initdb.d/02-seed-test-data.sql:ro
+      - ./stage1/sql/03-partition-maintenance.sql:/docker-entrypoint-initdb.d/03-partition-maintenance.sql:ro
     ports:
-      # Network restriction: strictly loopback/internal
       - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     networks:
-      - isp_internal_net
+      isp_internal_net:
+        aliases:
+          - postgres
+          - postgres_primary
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-radius_user} -d ${POSTGRES_DB:-isp_billing}"]
       interval: 3s
@@ -38,26 +43,53 @@ services:
       retries: 10
     command: >
       postgres
-        -c shared_buffers=1024MB
-        -c effective_cache_size=3072MB
-        -c work_mem=64MB
-        -c maintenance_work_mem=256MB
-        -c min_wal_size=1GB
-        -c max_wal_size=4GB
-        -c checkpoint_completion_target=0.9
-        -c wal_buffers=16MB
-        -c default_statistics_target=100
-        -c random_page_cost=1.1
-        -c effective_io_concurrency=200
-        -c max_connections=200
+        -c wal_level=replica
+        -c max_wal_senders=10
+        -c max_replication_slots=10
+        -c hot_standby=on
+        -c shared_buffers=512MB
+        -c work_mem=32MB
 
   # ====================================================================
-  # Redis 7: Ultra-fast Session Caching & Queue Buffer
+  # 2. PostgreSQL 16 Replica: Streaming Replication Standby
   # ====================================================================
-  redis:
-    image: redis:7-alpine
-    container_name: isp_redis
+  postgres_replica:
+    image: postgres:16-alpine
+    container_name: isp_postgres_replica
     restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-isp_billing}
+      POSTGRES_USER: ${POSTGRES_USER:-radius_user}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-ReplSecret2026!}
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./stage1/scripts/replica-entrypoint.sh:/tmp/scripts/replica-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/tmp/scripts/replica-entrypoint.sh"]
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+    ports:
+      - "${POSTGRES_REPLICA_BIND_IP:-127.0.0.1}:${POSTGRES_REPLICA_PORT:-5433}:5432"
+    networks:
+      isp_internal_net:
+        aliases:
+          - postgres_replica
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-radius_user} -d ${POSTGRES_DB:-isp_billing}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ====================================================================
+  # 3. Redis 7 Master: In-Memory Fast-Path & SETNX Deduplication
+  # ====================================================================
+  redis_master:
+    image: redis:7-alpine
+    container_name: isp_redis_master
+    restart: always
+    secrets:
+      - redis_password
     command: >
       sh -c "
         if [ -f /run/secrets/redis_password ]; then
@@ -65,17 +97,17 @@ services:
         else
           AUTH_PASS=\"$${REDIS_PASSWORD:-SecretRedisToken2026!}\"
         fi
-        exec redis-server --requirepass \"$$AUTH_PASS\" --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+        exec redis-server --requirepass \"$$AUTH_PASS\" --masterauth \"$$AUTH_PASS\" --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
       "
-    secrets:
-      - redis_password
     volumes:
-      - redis_data:/data
+      - redis_master_data:/data
     ports:
-      # Network restriction: strictly loopback/internal
       - "${REDIS_BIND_IP:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     networks:
-      - isp_internal_net
+      isp_internal_net:
+        aliases:
+          - redis
+          - redis_master
     healthcheck:
       test: >
         sh -c "
@@ -90,11 +122,75 @@ services:
       retries: 5
 
   # ====================================================================
-  # FreeRADIUS 3.2: High-Performance RADIUS Daemon with rlm_sql
+  # 4. Redis 7 Replica: Asynchronous High-Availability Standby
   # ====================================================================
-  freeradius:
+  redis_replica:
+    image: redis:7-alpine
+    container_name: isp_redis_replica
+    restart: always
+    secrets:
+      - redis_password
+    depends_on:
+      redis_master:
+        condition: service_healthy
+    command: >
+      sh -c "
+        if [ -f /run/secrets/redis_password ]; then
+          AUTH_PASS=$$(cat /run/secrets/redis_password | tr -d '\r\n')
+        else
+          AUTH_PASS=\"$${REDIS_PASSWORD:-SecretRedisToken2026!}\"
+        fi
+        exec redis-server --replicaof redis_master 6379 --requirepass \"$$AUTH_PASS\" --masterauth \"$$AUTH_PASS\" --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+      "
+    volumes:
+      - redis_replica_data:/data
+    ports:
+      - "${REDIS_REPLICA_BIND_IP:-127.0.0.1}:${REDIS_REPLICA_PORT:-6380}:6379"
+    networks:
+      isp_internal_net:
+        aliases:
+          - redis_replica
+    healthcheck:
+      test: >
+        sh -c "
+          if [ -f /run/secrets/redis_password ]; then
+            redis-cli -a \"$$(cat /run/secrets/redis_password | tr -d '\r\n')\" ping
+          else
+            redis-cli -a \"$${REDIS_PASSWORD:-SecretRedisToken2026!}\" ping
+          fi
+        "
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  # ====================================================================
+  # 5. Redis Sentinel: Quorum Monitoring & Automated Master Failover
+  # ====================================================================
+  redis_sentinel:
+    image: redis:7-alpine
+    container_name: isp_redis_sentinel
+    restart: always
+    secrets:
+      - redis_password
+    depends_on:
+      redis_master:
+        condition: service_healthy
+      redis_replica:
+        condition: service_healthy
+    volumes:
+      - ./stage1/scripts/sentinel-entrypoint.sh:/tmp/scripts/sentinel-entrypoint.sh:ro
+    entrypoint: ["/bin/sh", "/tmp/scripts/sentinel-entrypoint.sh"]
+    ports:
+      - "${SENTINEL_BIND_IP:-127.0.0.1}:${SENTINEL_PORT:-26379}:26379"
+    networks:
+      - isp_internal_net
+
+  # ====================================================================
+  # 6. FreeRADIUS Node 1 (AAA Engine)
+  # ====================================================================
+  freeradius_1:
     image: freeradius/freeradius-server:3.2.3-alpine
-    container_name: isp_freeradius
+    container_name: isp_freeradius_1
     restart: always
     environment:
       PATH: /opt/bin:/opt/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -104,14 +200,10 @@ services:
       - radius_secret
       - db_password
     depends_on:
-      postgres:
+      postgres_primary:
         condition: service_healthy
-      redis:
+      redis_master:
         condition: service_healthy
-    ports:
-      - "${RADIUS_BIND_IP:-0.0.0.0}:${RADIUS_AUTH_PORT:-1812}:1812/udp" # RADIUS Authentication
-      - "${RADIUS_BIND_IP:-0.0.0.0}:${RADIUS_ACCT_PORT:-1813}:1813/udp" # RADIUS Accounting
-      - "${RADIUS_COA_BIND_IP:-0.0.0.0}:${RADIUS_COA_PORT:-3799}:3799/udp" # RFC 3576 CoA / PoD Disconnect
     volumes:
       - ./stage1/freeradius/clients.conf:/tmp/custom_raddb/clients.conf:ro
       - ./stage1/freeradius/mods-available/sql:/tmp/custom_raddb/sql:ro
@@ -120,34 +212,122 @@ services:
       - |
         apk add --no-cache libpq >/dev/null 2>&1 || true
         export PATH=/opt/sbin:/opt/bin:$$PATH
-
         RADIUS_SEC="$${RADIUS_SECRET:-testing123}"
-        if [ -f /run/secrets/radius_secret ]; then
-          RADIUS_SEC=$$(cat /run/secrets/radius_secret | tr -d '\r\n')
-        fi
-
+        [ -f /run/secrets/radius_secret ] && RADIUS_SEC=$$(cat /run/secrets/radius_secret | tr -d '\r\n')
         DB_PASS="$${POSTGRES_PASSWORD:-SecretRadiusDbPassword2026!}"
-        if [ -f /run/secrets/db_password ]; then
-          DB_PASS=$$(cat /run/secrets/db_password | tr -d '\r\n')
-        fi
-
-        sed "s|\${RADIUS_SECRET}|$$RADIUS_SEC|g; s/testing123/$$RADIUS_SEC/g; s/RadiusSecretKey2026/$$RADIUS_SEC/g" /tmp/custom_raddb/clients.conf > /opt/etc/raddb/clients.conf
+        [ -f /run/secrets/db_password ] && DB_PASS=$$(cat /run/secrets/db_password | tr -d '\r\n')
+        sed "s|\$${RADIUS_SECRET}|$$RADIUS_SEC|g; s/testing123/$$RADIUS_SEC/g; s/RadiusSecretKey2026/$$RADIUS_SEC/g" /tmp/custom_raddb/clients.conf > /opt/etc/raddb/clients.conf
         sed -i 's/\r$$//' /opt/etc/raddb/clients.conf
-
-        sed "s|\${DB_PASSWORD}|$$DB_PASS|g; s/SecretRadiusDbPassword2026!/$$DB_PASS/g" /tmp/custom_raddb/sql > /opt/etc/raddb/mods-available/sql
+        sed "s|\$${DB_PASSWORD}|$$DB_PASS|g; s/SecretRadiusDbPassword2026!/$$DB_PASS/g" /tmp/custom_raddb/sql > /opt/etc/raddb/mods-available/sql
         sed -i 's/\r$$//' /opt/etc/raddb/mods-available/sql
-
         ln -sf /opt/etc/raddb/mods-available/sql /opt/etc/raddb/mods-enabled/sql
         ln -sf /opt/etc/raddb/sites-available/coa /opt/etc/raddb/sites-enabled/coa
-
-        # Wait for PostgreSQL port readiness
-        until nc -z -w3 postgres 5432; do
-          echo "Waiting for PostgreSQL at postgres:5432..."
-          sleep 1
-        done
-
-        echo "[SUCCESS] Starting FreeRADIUS 3.2 with rlm_sql on UDP ports 1812, 1813, 3799..."
+        until nc -z -w3 postgres 5432; do sleep 1; done
         exec radiusd -f -l stdout
+    networks:
+      - isp_internal_net
+
+  # ====================================================================
+  # 7. FreeRADIUS Node 2 (AAA Engine)
+  # ====================================================================
+  freeradius_2:
+    image: freeradius/freeradius-server:3.2.3-alpine
+    container_name: isp_freeradius_2
+    restart: always
+    environment:
+      PATH: /opt/bin:/opt/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      RADIUS_SECRET: ${RADIUS_SECRET:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    secrets:
+      - radius_secret
+      - db_password
+    depends_on:
+      postgres_primary:
+        condition: service_healthy
+      redis_master:
+        condition: service_healthy
+    volumes:
+      - ./stage1/freeradius/clients.conf:/tmp/custom_raddb/clients.conf:ro
+      - ./stage1/freeradius/mods-available/sql:/tmp/custom_raddb/sql:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache libpq >/dev/null 2>&1 || true
+        export PATH=/opt/sbin:/opt/bin:$$PATH
+        RADIUS_SEC="$${RADIUS_SECRET:-testing123}"
+        [ -f /run/secrets/radius_secret ] && RADIUS_SEC=$$(cat /run/secrets/radius_secret | tr -d '\r\n')
+        DB_PASS="$${POSTGRES_PASSWORD:-SecretRadiusDbPassword2026!}"
+        [ -f /run/secrets/db_password ] && DB_PASS=$$(cat /run/secrets/db_password | tr -d '\r\n')
+        sed "s|\$${RADIUS_SECRET}|$$RADIUS_SEC|g; s/testing123/$$RADIUS_SEC/g; s/RadiusSecretKey2026/$$RADIUS_SEC/g" /tmp/custom_raddb/clients.conf > /opt/etc/raddb/clients.conf
+        sed -i 's/\r$$//' /opt/etc/raddb/clients.conf
+        sed "s|\$${DB_PASSWORD}|$$DB_PASS|g; s/SecretRadiusDbPassword2026!/$$DB_PASS/g" /tmp/custom_raddb/sql > /opt/etc/raddb/mods-available/sql
+        sed -i 's/\r$$//' /opt/etc/raddb/mods-available/sql
+        ln -sf /opt/etc/raddb/mods-available/sql /opt/etc/raddb/mods-enabled/sql
+        ln -sf /opt/etc/raddb/sites-available/coa /opt/etc/raddb/sites-enabled/coa
+        until nc -z -w3 postgres 5432; do sleep 1; done
+        exec radiusd -f -l stdout
+    networks:
+      - isp_internal_net
+
+  # ====================================================================
+  # 8. FreeRADIUS Load Balancer (HAProxy UDP & Stats)
+  # ====================================================================
+  freeradius_lb:
+    image: haproxy:2.8-alpine
+    container_name: isp_freeradius_lb
+    restart: always
+    volumes:
+      - ./stage1/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - freeradius_1
+      - freeradius_2
+    ports:
+      - "${RADIUS_BIND_IP:-0.0.0.0}:${RADIUS_AUTH_PORT:-1812}:1812/udp" # Balanced RADIUS Auth
+      - "${RADIUS_BIND_IP:-0.0.0.0}:${RADIUS_ACCT_PORT:-1813}:1813/udp" # Balanced RADIUS Acct
+      - "${RADIUS_COA_BIND_IP:-0.0.0.0}:${RADIUS_COA_PORT:-3799}:3799/udp" # RFC 5176 CoA/PoD
+      - "${HAPROXY_STATS_BIND_IP:-127.0.0.1}:8404:8404" # HAProxy Statistics Dashboard
+    networks:
+      isp_internal_net:
+        aliases:
+          - freeradius
+          - freeradius_lb
+
+  # ====================================================================
+  # 9. MinIO S3 Object Storage (Local Encrypted Backups)
+  # ====================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: isp_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_BIND_IP:-127.0.0.1}:9000:9000"
+      - "${MINIO_CONSOLE_BIND_IP:-127.0.0.1}:9001:9001"
+    networks:
+      - isp_internal_net
+
+  # ====================================================================
+  # 10. MinIO Bucket Initialization Helper
+  # ====================================================================
+  minio_setup:
+    image: minio/mc:latest
+    container_name: isp_minio_setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        until nc -z -w3 minio 9000; do sleep 1; done
+        mc alias set myminio http://minio:9000 ${AWS_ACCESS_KEY_ID:-minioadmin} ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+        mc mb myminio/${S3_BUCKET:-isp-encrypted-backups} || true
+        mc anonymous set download myminio/${S3_BUCKET:-isp-encrypted-backups} || true
+        echo '[SUCCESS] MinIO bucket isp-encrypted-backups ready.'
+        exit 0
+      "
     networks:
       - isp_internal_net
 
@@ -159,5 +339,8 @@ networks:
         - subnet: 10.250.10.0/24
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_primary_data:
+  postgres_replica_data:
+  redis_master_data:
+  redis_replica_data:
+  minio_data:
