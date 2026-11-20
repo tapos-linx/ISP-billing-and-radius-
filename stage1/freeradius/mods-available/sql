@@ -47,66 +47,7 @@ sql {
         idle_timeout = 60
     }
 
-    # Query definitions for radcheck & radreply
-    authorize_check_query = "SELECT id, username, attribute, value, op \
-        FROM ${authcheck_table} \
-        WHERE username = '%{SQL-User-Name}' \
-        ORDER BY id"
-
-    authorize_reply_query = "SELECT id, username, attribute, value, op \
-        FROM ${authreply_table} \
-        WHERE username = '%{SQL-User-Name}' \
-        ORDER BY id"
-
-    authorize_group_check_query = "SELECT id, groupname, attribute, value, op \
-        FROM ${groupcheck_table} \
-        WHERE groupname = '%{SQL-Group}' \
-        ORDER BY id"
-
-    authorize_group_reply_query = "SELECT id, groupname, attribute, value, op \
-        FROM ${groupreply_table} \
-        WHERE groupname = '%{SQL-Group}' \
-        ORDER BY id"
-
-    usergroup_query = "SELECT groupname \
-        FROM ${usergroup_table} \
-        WHERE username = '%{SQL-User-Name}' \
-        ORDER BY priority"
-
-    # Dynamic NAS Client Lookup Query
-    client_query = "SELECT id, nasname, shortname, type, secret, server \
-        FROM ${nas_table}"
-
-    # Accounting Start/Stop Queries pointing to partitioned radacct
-    accounting_start_query = "INSERT INTO ${acct_table1} \
-        (acctsessionid, acctuniqueid, username, realm, nasipaddress, \
-        nasportid, nasporttype, acctstarttime, acctsessiontime, acctauthentic, \
-        connectinfo_start, acctinputoctets, acctoutputoctets, calledstationid, \
-        callingstationid, servicetype, framedprotocol, framedipaddress) \
-        VALUES \
-        ('%{Acct-Session-Id}', '%{Acct-Unique-Session-Id}', \
-        '%{SQL-User-Name}', '%{Realm}', '%{NAS-IP-Address}', \
-        '%{NAS-Port-Id}', '%{NAS-Port-Type}', \
-        NOW(), 0, '%{Acct-Authentic}', \
-        '%{Connect-Info}', 0, 0, '%{Called-Station-Id}', \
-        '%{Calling-Station-Id}', '%{Service-Type}', '%{Framed-Protocol}', \
-        NULLIF('%{Framed-IP-Address}', '')::inet)"
-
-    accounting_stop_query = "UPDATE ${acct_table2} SET \
-        acctstoptime = NOW(), \
-        acctsessiontime = %{Acct-Session-Time}, \
-        acctinputoctets = %{Acct-Input-Octets}, \
-        acctoutputoctets = %{Acct-Output-Octets}, \
-        acctterminatecause = '%{Acct-Terminate-Cause}', \
-        connectinfo_stop = '%{Connect-Info}' \
-        WHERE acctuniqueid = '%{Acct-Unique-Session-Id}' \
-        AND acctstoptime IS NULL"
-
-    accounting_update_periodic_query = "UPDATE ${acct_table1} SET \
-        acctupdatetime = NOW(), \
-        acctsessiontime = %{Acct-Session-Time}, \
-        acctinputoctets = %{Acct-Input-Octets}, \
-        acctoutputoctets = %{Acct-Output-Octets} \
-        WHERE acctuniqueid = '%{Acct-Unique-Session-Id}' \
-        AND acctstoptime IS NULL"
+    client_table = "nas"
+    group_attribute = "SQL-Group"
+    $INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
 }

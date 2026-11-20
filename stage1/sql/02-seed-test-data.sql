@@ -24,6 +24,10 @@ INSERT INTO nas (nasname, shortname, type, ports, secret, description)
 VALUES ('172.20.0.0/16', 'docker_subnet', 'other', 1812, 'testing123', 'Docker Internal Bridge Network')
 ON CONFLICT (nasname) DO UPDATE SET secret = EXCLUDED.secret;
 
+INSERT INTO nas (nasname, shortname, type, ports, secret, description)
+VALUES ('10.250.0.0/16', 'docker_internal_subnet', 'other', 1812, 'testing123', 'Docker Internal Bridge Network 10.250.0.0/16')
+ON CONFLICT (nasname) DO UPDATE SET secret = EXCLUDED.secret;
+
 
 -- 2. Seed PPPoE Test User: `tapos_test`
 -- Authentication in `radcheck` (Cleartext-Password)

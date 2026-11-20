@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ====================================================================
   # PostgreSQL 16: Monthly Partitioned radacct & High-Speed Lookups
@@ -19,7 +17,7 @@ services:
       - ./stage1/sql/01-init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
       - ./stage1/sql/02-seed-test-data.sql:/docker-entrypoint-initdb.d/02-seed-test-data.sql:ro
     ports:
-      - "127.0.0.1:5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     networks:
       - isp_internal_net
     healthcheck:
@@ -53,7 +51,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "127.0.0.1:6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     networks:
       - isp_internal_net
     healthcheck:
@@ -70,33 +68,34 @@ services:
     image: freeradius/freeradius-server:3.2.3-alpine
     container_name: isp_freeradius
     restart: always
+    environment:
+      PATH: /opt/bin:/opt/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     ports:
-      - "1812:1812/udp" # RADIUS Authentication
-      - "1813:1813/udp" # RADIUS Accounting
-      - "3799:3799/udp" # RFC 3576 CoA / PoD Disconnect
+      - "${RADIUS_AUTH_PORT:-1812}:1812/udp" # RADIUS Authentication
+      - "${RADIUS_ACCT_PORT:-1813}:1813/udp" # RADIUS Accounting
+      - "${RADIUS_COA_PORT:-3799}:3799/udp" # RFC 3576 CoA / PoD Disconnect
     volumes:
-      - ./stage1/freeradius/radiusd.conf:/etc/raddb/radiusd.conf:ro
-      - ./stage1/freeradius/clients.conf:/etc/raddb/clients.conf:ro
-      - ./stage1/freeradius/mods-available/sql:/etc/raddb/mods-available/sql:ro
-      - ./stage1/scripts/entrypoint-freeradius.sh:/docker-entrypoint-init.sh:ro
+      - ./stage1/freeradius/clients.conf:/tmp/custom_raddb/clients.conf:ro
+      - ./stage1/freeradius/mods-available/sql:/tmp/custom_raddb/sql:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        # Strip Windows CRLF (\r) from all configuration files before starting daemon
-        tr -d '\r' < /etc/raddb/radiusd.conf > /tmp/radiusd.conf && cp /tmp/radiusd.conf /etc/raddb/radiusd.conf
-        tr -d '\r' < /etc/raddb/clients.conf > /tmp/clients.conf && cp /tmp/clients.conf /etc/raddb/clients.conf
-        tr -d '\r' < /etc/raddb/mods-available/sql > /etc/raddb/mods-enabled/sql
-
-        # Enable SQL module links
-        ln -sf /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/sql
+        apk add --no-cache libpq >/dev/null 2>&1 || true
+        export PATH=/opt/sbin:/opt/bin:$$PATH
+        cp /tmp/custom_raddb/clients.conf /opt/etc/raddb/clients.conf
+        sed -i 's/\r$$//' /opt/etc/raddb/clients.conf
+        cp /tmp/custom_raddb/sql /opt/etc/raddb/mods-available/sql
+        sed -i 's/\r$$//' /opt/etc/raddb/mods-available/sql
+        ln -sf /opt/etc/raddb/mods-available/sql /opt/etc/raddb/mods-enabled/sql
+        ln -sf /opt/etc/raddb/sites-available/coa /opt/etc/raddb/sites-enabled/coa
 
         # Wait for PostgreSQL port readiness
-        until nc -z -v -w3 postgres 5432; do
+        until nc -z -w3 postgres 5432; do
           echo "Waiting for PostgreSQL at postgres:5432..."
           sleep 1
         done
@@ -108,14 +107,11 @@ services:
 
 networks:
   isp_internal_net:
-    name: isp_internal_net
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 10.250.10.0/24
 
 volumes:
   postgres_data:
-    name: isp_postgres_data
   redis_data:
-    name: isp_redis_data

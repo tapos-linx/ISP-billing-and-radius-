@@ -77,6 +77,18 @@ flowchart TD
   - On MikroTik: `/radius incoming print` -> `accept: yes`, `port: 3799`.
 - [ ] **Walled Garden NAT Validation:**
   - Verify NAT rule redirects port `80/tcp` from `10.250.0.0/24` to Captive Bill-Pay Portal.
+- [ ] **Single-Subscriber Isolated Pilot (`tapos_pilot`):**
+  - Verify isolated PPPoE auth (<10ms), radacct streaming, and RFC 5176 Disconnect on VLAN 999:
+    ```bash
+    # Dry-run pre-flight validation (safe, zero DB writes):
+    ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -u ubuntu -i ~/.ssh/id_rsa -m <MIKROTIK_IP> -r <RADIUS_SECRET> --dry-run
+
+    # Full automated pilot run (with 5-minute observation window and zero-stray rollback):
+    ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -u ubuntu -i ~/.ssh/id_rsa -m <MIKROTIK_IP> -r <RADIUS_SECRET>
+
+    # Force instant rollback / teardown:
+    ./scripts/run_single_sub_pilot.sh -s <UBUNTU_IP> -u ubuntu -i ~/.ssh/id_rsa --rollback
+    ```
 
 ### C. T-2 Hours: Freeze Window & Team Briefing
 - [ ] Change freeze announced to NOC, Support, and Reseller partners.
