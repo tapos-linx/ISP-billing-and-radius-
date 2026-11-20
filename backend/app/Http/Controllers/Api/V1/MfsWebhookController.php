@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Services\Audit\BillingAuditService;
+use App\Services\Ledger\DoubleEntryLedgerService;
 use App\Services\Radius\RadiusCoaService;
 use App\Services\Radius\RadiusSyncService;
 use Illuminate\Http\JsonResponse;
@@ -12,20 +16,21 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Str;
 
 /**
- * Stage 8/12 Production Hardened MFS Webhook Controller:
- * Idempotent bKash & Nagad MFS Webhook Controller.
- * Enforces HMAC-SHA256 verification backed by Docker Secrets / runtime env,
- * Redis SETNX (noeviction) transaction deduplication,
- * NBR 5% Mushak-6.3 VAT invoice settlement, +30d plan extension, Citus radreply pool restoration,
- * and <3.0s CoA/PoD line restoration to MikroTik / BNG NAS.
+ * Phase 3 Hardened MFS Webhook Controller:
+ * Enforces HMAC-SHA256 verification, Redis SETNX deduplication,
+ * Double-Entry General Ledger settlement (DR Cash, CR Accounts Receivable),
+ * Immutable Audit Logging, NBR Mushak-6.3 VAT compliance, and RFC 5176 CoA session unblock.
  */
 final class MfsWebhookController extends Controller
 {
     public function __construct(
         private readonly RadiusSyncService $radiusSync,
-        private readonly RadiusCoaService $radiusCoa
+        private readonly RadiusCoaService $radiusCoa,
+        private readonly DoubleEntryLedgerService $ledgerService,
+        private readonly BillingAuditService $auditService
     ) {}
 
     public function handleBkash(Request $request): JsonResponse
@@ -49,7 +54,6 @@ final class MfsWebhookController extends Controller
      */
     private function resolveWebhookSecret(string $gateway): string
     {
-        // 1. Docker secret file mount
         $secretFile = "/run/secrets/{$gateway}_secret";
         if (file_exists($secretFile) && is_readable($secretFile)) {
             $secretVal = trim((string) file_get_contents($secretFile));
@@ -58,7 +62,6 @@ final class MfsWebhookController extends Controller
             }
         }
 
-        // 2. Config / Environment
         $val = match ($gateway) {
             'bkash' => config('services.bkash.webhook_secret')
                 ?: config('services.bkash.app_secret')
@@ -73,13 +76,11 @@ final class MfsWebhookController extends Controller
             return (string) $val;
         }
 
-        // 3. Strict production rejection
         if (app()->environment('production')) {
             Log::critical("MFS webhook secret is missing in production environment for gateway: {$gateway}");
             abort(500, "Webhook gateway secret not configured");
         }
 
-        // Test/Local fallback
         return "sandbox_{$gateway}_secret_2026";
     }
 
@@ -105,7 +106,7 @@ final class MfsWebhookController extends Controller
             'amount_bdt'    => ['required', 'numeric', 'min:1'],
         ]);
 
-        // Redis SETNX transaction idempotency guard (requires --maxmemory-policy noeviction)
+        // Redis SETNX transaction idempotency guard
         $lockKey = "webhook:{$gateway}:{$data['trx_id']}";
         $acquired = Redis::set($lockKey, '1', 'EX', 86400 * 7, 'NX');
         if (!$acquired) {
@@ -120,16 +121,48 @@ final class MfsWebhookController extends Controller
             ], 409);
         }
 
-        $subscriber = DB::transaction(function () use ($data, $gateway) {
-            // Settle NBR Mushak-6.3 Invoice
-            DB::table('invoices')
-                ->where('invoice_id', $data['invoice_id'])
-                ->where('subscriber_id', $data['subscriber_id'])
-                ->update([
+        $subscriber = DB::transaction(function () use ($data, $gateway, $request) {
+            // 1. Fetch & Settle Invoice
+            $invoice = Invoice::where('invoice_id', $data['invoice_id'])->first();
+            if ($invoice) {
+                // Ensure double-entry invoice issuance is recorded if not already posted
+                $hasArEntry = DB::table('ledger_entries')
+                    ->where('invoice_id', $invoice->invoice_id)
+                    ->where('debit_bdt', '>', 0)
+                    ->exists();
+
+                if (!$hasArEntry) {
+                    $this->ledgerService->recordInvoiceIssuance($invoice);
+                }
+
+                $invoice->update([
                     'status'  => 'paid',
                     'paid_at' => now(),
                 ]);
+            } else {
+                DB::table('invoices')
+                    ->where('invoice_id', $data['invoice_id'])
+                    ->where('subscriber_id', $data['subscriber_id'])
+                    ->update([
+                        'status'  => 'paid',
+                        'paid_at' => now(),
+                    ]);
+            }
 
+            // 2. Create Payment Record
+            $payment = Payment::create([
+                'payment_id'    => (string) Str::uuid(),
+                'invoice_id'    => $data['invoice_id'],
+                'subscriber_id' => $data['subscriber_id'],
+                'tenant_id'     => $invoice ? $invoice->tenant_id : 1,
+                'amount_bdt'    => $data['amount_bdt'],
+                'gateway'       => $gateway,
+                'trx_id'        => $data['trx_id'],
+                'status'        => 'completed',
+                'paid_at'       => now(),
+            ]);
+
+            // Backward-compatible payment_webhooks insert
             DB::table('payment_webhooks')->insert([
                 'subscriber_id' => $data['subscriber_id'],
                 'invoice_id'    => $data['invoice_id'],
@@ -140,6 +173,39 @@ final class MfsWebhookController extends Controller
                 'processed_at'  => now(),
             ]);
 
+            // 3. Post Double-Entry Payment Settlement (DR: Cash/MFS Clearing, CR: Accounts Receivable)
+            if ($invoice) {
+                $this->ledgerService->recordPaymentSettlement($invoice, $payment);
+            }
+
+            // 4. Record Immutable Audit Events
+            $this->auditService->logEvent(
+                eventType: 'payment_received',
+                entityType: 'payment',
+                entityId: $payment->payment_id,
+                actorType: 'mfs_webhook',
+                actorId: $gateway,
+                prevState: null,
+                newState: [
+                    'trx_id'     => $data['trx_id'],
+                    'amount_bdt' => $data['amount_bdt'],
+                    'gateway'    => $gateway,
+                ],
+                ipAddress: $request->ip()
+            );
+
+            $this->auditService->logEvent(
+                eventType: 'invoice_settled',
+                entityType: 'invoice',
+                entityId: $data['invoice_id'],
+                actorType: 'mfs_webhook',
+                actorId: $gateway,
+                prevState: ['status' => 'unpaid'],
+                newState: ['status' => 'paid', 'paid_at' => now()->toIso8601String()],
+                ipAddress: $request->ip()
+            );
+
+            // 5. Extend Subscriber Expiration & Activate Line
             $existingSub = DB::table('subscribers')
                 ->where('subscriber_id', $data['subscriber_id'])
                 ->first();
@@ -156,7 +222,7 @@ final class MfsWebhookController extends Controller
                     'expires_at' => $newExpiry,
                 ]);
 
-            // BTRC Audit Retention Log (Mandatory 2-year retention)
+            // BTRC Audit Retention Log
             DB::table('btrc_audit_logs')->insert([
                 'subscriber_id'  => $data['subscriber_id'],
                 'actor_type'     => 'mfs_webhook',
@@ -196,8 +262,7 @@ final class MfsWebhookController extends Controller
             // Dispatch RFC 5176 UDP 3799 CoA/PoD Disconnect to NAS
             $nas = DB::table('nas')->first();
             $nasIp = $nas ? $nas->nasname : '127.0.0.1';
-            
-            // Check Docker secret for RADIUS shared secret
+
             $radiusSecret = null;
             if (file_exists('/run/secrets/radius_secret')) {
                 $radiusSecret = trim((string) file_get_contents('/run/secrets/radius_secret'));
@@ -216,6 +281,17 @@ final class MfsWebhookController extends Controller
                     null,
                     $coaPort
                 );
+
+                $this->auditService->logEvent(
+                    eventType: 'coa_pod_dispatched',
+                    entityType: 'coa_session',
+                    entityId: $subscriber->username,
+                    actorType: 'system',
+                    actorId: 'RadiusCoaService',
+                    prevState: ['rate_limit' => '128k/128k', 'pool' => 'walled_garden_pool'],
+                    newState: ['rate_limit' => $rateLimit, 'pool' => 'pppoe_active_pool'],
+                    ipAddress: $nasIp
+                );
             } catch (\Throwable $e) {
                 Log::info("CoA dispatch recorded: " . $e->getMessage());
             }
@@ -224,7 +300,7 @@ final class MfsWebhookController extends Controller
         return response()->json([
             'status'  => 'accepted',
             'trx_id'  => $data['trx_id'],
-            'message' => 'Invoice settled, subscriber line restored to active pool',
+            'message' => 'Invoice settled, ledger updated, subscriber line restored to active pool',
         ], 202);
     }
 }
