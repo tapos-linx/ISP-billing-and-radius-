@@ -293,6 +293,27 @@ The Android application includes a real-time hardware simulation suite:
    - âš¡ **Low-Latency Mode** (`gemini-3.1-flash-lite`): Fast answers for PowerShell flags, FreeRADIUS dictionary attributes, and RouterOS commands.
    - ðŸ§  **High Thinking Mode** (`gemini-4-argon` with high thinking level): Deep architectural guidance on BGP multihoming, MPLS, high-availability PostgreSQL, and BSS database sharding.
 
+### Automated Local QA Lab Runner (Stage 9)
+
+Run the full 5-section local verification suite across the clustered Citus and FreeRADIUS HA stack:
+
+```powershell
+# PowerShell (Windows)
+powershell -ExecutionPolicy Bypass -File scripts\Run-IspLocalQa.ps1
+```
+
+```bash
+# Bash (Linux / Git Bash / macOS)
+bash scripts/run_isp_local_qa.sh
+```
+
+**Verification Sections:**
+1. **Docker Compose Status & Container Startup**: Validates running status of `citus_master`, `citus_worker_1/2`, `redis_cluster`, `freeradius_aaa`, `laravel_bss_oss`, and `rabbitmq_broker`.
+2. **PostgreSQL / Citus Schema & RADIUS Tables**: Checks 32 relational tables and query execution on `radacct`.
+3. **PHPUnit Billing, Webhook Idempotency & RADIUS Sync**: Executes Laravel feature and unit test suite.
+4. **FreeRADIUS Access-Request (radtest)**: Validates sub-10ms authentication and `Mikrotik-Rate-Limit` VSA return.
+5. **MikroTik RFC 5176 CoA / Disconnect-Request**: Sends UDP 3799 PoD disconnect packet and verifies `Disconnect-ACK`.
+
 ---
 
 ## Repository Structure

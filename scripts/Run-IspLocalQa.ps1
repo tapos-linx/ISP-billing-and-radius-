@@ -34,17 +34,19 @@ function Write-Section([string]$Title) {
     Write-Host "=== $Title ===" -ForegroundColor Cyan
 }
 
-# Determine Compose File configuration
+# Determine Compose File configuration: prioritize clustered carrier stack in infra/docker-compose.yml
 $ComposeArgs = @()
 if ($ComposeFile -ne "") {
     $ComposeArgs = @("-f", $ComposeFile)
 } else {
-    $rootRunning = @(docker compose ps --services --filter "status=running" 2>$null | Where-Object { $_ -match '\S' })
-    if ($rootRunning.Count -gt 0) {
-        $ComposeArgs = @()
+    $infraRunning = @(docker compose -f infra/docker-compose.yml ps --services --filter "status=running" 2>$null | Where-Object { $_ -match '\S' })
+    if ($infraRunning.Count -gt 0) {
+        $ComposeArgs = @("-f", "infra/docker-compose.yml")
     } else {
-        $infraRunning = @(docker compose -f infra/docker-compose.yml ps --services --filter "status=running" 2>$null | Where-Object { $_ -match '\S' })
-        if ($infraRunning.Count -gt 0) {
+        $rootRunning = @(docker compose ps --services --filter "status=running" 2>$null | Where-Object { $_ -match '\S' })
+        if ($rootRunning.Count -gt 0) {
+            $ComposeArgs = @()
+        } elseif (Test-Path "infra/docker-compose.yml") {
             $ComposeArgs = @("-f", "infra/docker-compose.yml")
         } else {
             $ComposeArgs = @()
@@ -65,7 +67,7 @@ function Resolve-ServiceName([string[]]$Candidates, [string[]]$CArgs) {
 $DbService     = Resolve-ServiceName @("citus_master", "postgres", "db") $ComposeArgs
 $AppService    = Resolve-ServiceName @("laravel_app", "app", "laravel_bss_oss", "laravel") $ComposeArgs
 $RadiusService = Resolve-ServiceName @("freeradius", "freeradius_aaa") $ComposeArgs
-$isCitus       = ($DbService -eq "citus_master")
+$isCitus       = ($DbService -eq "citus_master") -or ($ComposeArgs -contains "infra/docker-compose.yml")
 
 Write-Section "1. Docker Compose Status & Container Startup"
 docker compose @ComposeArgs ps -a
@@ -100,8 +102,8 @@ if ($RadiusPass -eq "") {
     $RadiusPass = if ($isCitus -or ($ComposeArgs -contains "infra/docker-compose.yml")) { "Tapos@2026" } else { "tapos_pass_2026" }
 }
 if ($RadiusSecret -eq "") {
-    $secretFile = Join-Path (Split-Path -Parent $PSScriptRoot) "secrets\radius_secret.txt"
-    $infraSecretFile = Join-Path (Split-Path -Parent $PSScriptRoot) "infra\secrets\radius_secret.txt"
+    $secretFile = Join-Path $ProjectDir "secrets\radius_secret.txt"
+    $infraSecretFile = Join-Path $ProjectDir "infra\secrets\radius_secret.txt"
     if ($env:RADIUS_SECRET) {
         $RadiusSecret = $env:RADIUS_SECRET
     } elseif (Test-Path $secretFile) {
@@ -122,12 +124,12 @@ Write-Section "5. MikroTik CoA / Disconnect-Request on UDP $CoaPort"
 if ($SkipCoa) {
     Write-Host "Skipped CoA check (-SkipCoa passed)." -ForegroundColor Yellow
 }
-elseif (Test-Path ".\coa_sim.py") {
-    python .\coa_sim.py
+elseif (Test-Path (Join-Path $ProjectDir "coa_sim.py")) {
+    python (Join-Path $ProjectDir "coa_sim.py")
 }
 else {
-    $radclientCmd = "echo `"User-Name=$RadiusUser`" | radclient -x ${CoaTargetIp}:${CoaPort} disconnect $RadiusSecret"
-    docker compose @ComposeArgs exec -T $RadiusService sh -c $radclientCmd
+    $radclientCmd = "echo 'User-Name = $RadiusUser' | radclient -x ${CoaTargetIp}:${CoaPort} disconnect $RadiusSecret"
+    docker compose @ComposeArgs exec -T $RadiusService sh -c "$radclientCmd"
 }
 
 Write-Host ""
