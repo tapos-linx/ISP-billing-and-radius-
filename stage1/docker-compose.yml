@@ -10,9 +10,9 @@ services:
     container_name: isp_postgres
     restart: always
     environment:
-      POSTGRES_DB: isp_billing
-      POSTGRES_USER: radius_user
-      POSTGRES_PASSWORD: SecretRadiusDbPassword2026!
+      POSTGRES_DB: ${POSTGRES_DB:-isp_billing}
+      POSTGRES_USER: ${POSTGRES_USER:-radius_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -49,7 +49,14 @@ services:
     image: redis:7-alpine
     container_name: isp_redis
     restart: always
-    command: redis-server --requirepass SecretRedisToken2026! --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: >
+      sh -c "
+        if [ -n \"$${REDIS_PASSWORD}\" ]; then
+          exec redis-server --requirepass \"$${REDIS_PASSWORD}\" --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+        else
+          exec redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+        fi
+      "
     volumes:
       - redis_data:/data
     ports:
@@ -57,7 +64,14 @@ services:
     networks:
       - isp_internal_net
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "SecretRedisToken2026!", "ping"]
+      test: >
+        sh -c "
+          if [ -n \"$${REDIS_PASSWORD}\" ]; then
+            redis-cli -a \"$${REDIS_PASSWORD}\" ping
+          else
+            redis-cli ping
+          fi
+        "
       interval: 3s
       timeout: 3s
       retries: 5

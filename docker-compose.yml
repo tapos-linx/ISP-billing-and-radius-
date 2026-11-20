@@ -1,27 +1,38 @@
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  radius_secret:
+    file: ./secrets/radius_secret.txt
+
 services:
   # ====================================================================
   # PostgreSQL 16: Monthly Partitioned radacct & High-Speed Lookups
-  # Optimized for < 10ms Access-Accept query latency on WSL2
   # ====================================================================
   postgres:
     image: postgres:16-alpine
     container_name: isp_postgres
     restart: always
     environment:
-      POSTGRES_DB: isp_billing
-      POSTGRES_USER: radius_user
-      POSTGRES_PASSWORD: SecretRadiusDbPassword2026!
+      POSTGRES_DB: ${POSTGRES_DB:-isp_billing}
+      POSTGRES_USER: ${POSTGRES_USER:-radius_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - db_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./stage1/sql/01-init-schema.sql:/docker-entrypoint-initdb.d/01-init-schema.sql:ro
       - ./stage1/sql/02-seed-test-data.sql:/docker-entrypoint-initdb.d/02-seed-test-data.sql:ro
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Network restriction: strictly loopback/internal
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     networks:
       - isp_internal_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U radius_user -d isp_billing"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-radius_user} -d ${POSTGRES_DB:-isp_billing}"]
       interval: 3s
       timeout: 3s
       retries: 10
@@ -47,22 +58,39 @@ services:
     image: redis:7-alpine
     container_name: isp_redis
     restart: always
-    command: redis-server --requirepass SecretRedisToken2026! --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: >
+      sh -c "
+        if [ -f /run/secrets/redis_password ]; then
+          AUTH_PASS=$$(cat /run/secrets/redis_password | tr -d '\r\n')
+        else
+          AUTH_PASS=\"$${REDIS_PASSWORD:-SecretRedisToken2026!}\"
+        fi
+        exec redis-server --requirepass \"$$AUTH_PASS\" --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+      "
+    secrets:
+      - redis_password
     volumes:
       - redis_data:/data
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      # Network restriction: strictly loopback/internal
+      - "${REDIS_BIND_IP:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     networks:
       - isp_internal_net
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "SecretRedisToken2026!", "ping"]
+      test: >
+        sh -c "
+          if [ -f /run/secrets/redis_password ]; then
+            redis-cli -a \"$$(cat /run/secrets/redis_password | tr -d '\r\n')\" ping
+          else
+            redis-cli -a \"$${REDIS_PASSWORD:-SecretRedisToken2026!}\" ping
+          fi
+        "
       interval: 3s
       timeout: 3s
       retries: 5
 
   # ====================================================================
   # FreeRADIUS 3.2: High-Performance RADIUS Daemon with rlm_sql
-  # Strips Windows CRLF line endings at launch via entrypoint script
   # ====================================================================
   freeradius:
     image: freeradius/freeradius-server:3.2.3-alpine
@@ -70,15 +98,20 @@ services:
     restart: always
     environment:
       PATH: /opt/bin:/opt/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      RADIUS_SECRET: ${RADIUS_SECRET:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    secrets:
+      - radius_secret
+      - db_password
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     ports:
-      - "${RADIUS_AUTH_PORT:-1812}:1812/udp" # RADIUS Authentication
-      - "${RADIUS_ACCT_PORT:-1813}:1813/udp" # RADIUS Accounting
-      - "${RADIUS_COA_PORT:-3799}:3799/udp" # RFC 3576 CoA / PoD Disconnect
+      - "${RADIUS_BIND_IP:-0.0.0.0}:${RADIUS_AUTH_PORT:-1812}:1812/udp" # RADIUS Authentication
+      - "${RADIUS_BIND_IP:-0.0.0.0}:${RADIUS_ACCT_PORT:-1813}:1813/udp" # RADIUS Accounting
+      - "${RADIUS_COA_BIND_IP:-0.0.0.0}:${RADIUS_COA_PORT:-3799}:3799/udp" # RFC 3576 CoA / PoD Disconnect
     volumes:
       - ./stage1/freeradius/clients.conf:/tmp/custom_raddb/clients.conf:ro
       - ./stage1/freeradius/mods-available/sql:/tmp/custom_raddb/sql:ro
@@ -87,10 +120,23 @@ services:
       - |
         apk add --no-cache libpq >/dev/null 2>&1 || true
         export PATH=/opt/sbin:/opt/bin:$$PATH
-        cp /tmp/custom_raddb/clients.conf /opt/etc/raddb/clients.conf
+
+        RADIUS_SEC="$${RADIUS_SECRET:-testing123}"
+        if [ -f /run/secrets/radius_secret ]; then
+          RADIUS_SEC=$$(cat /run/secrets/radius_secret | tr -d '\r\n')
+        fi
+
+        DB_PASS="$${POSTGRES_PASSWORD:-SecretRadiusDbPassword2026!}"
+        if [ -f /run/secrets/db_password ]; then
+          DB_PASS=$$(cat /run/secrets/db_password | tr -d '\r\n')
+        fi
+
+        sed "s|\${RADIUS_SECRET}|$$RADIUS_SEC|g; s/testing123/$$RADIUS_SEC/g; s/RadiusSecretKey2026/$$RADIUS_SEC/g" /tmp/custom_raddb/clients.conf > /opt/etc/raddb/clients.conf
         sed -i 's/\r$$//' /opt/etc/raddb/clients.conf
-        cp /tmp/custom_raddb/sql /opt/etc/raddb/mods-available/sql
+
+        sed "s|\${DB_PASSWORD}|$$DB_PASS|g; s/SecretRadiusDbPassword2026!/$$DB_PASS/g" /tmp/custom_raddb/sql > /opt/etc/raddb/mods-available/sql
         sed -i 's/\r$$//' /opt/etc/raddb/mods-available/sql
+
         ln -sf /opt/etc/raddb/mods-available/sql /opt/etc/raddb/mods-enabled/sql
         ln -sf /opt/etc/raddb/sites-available/coa /opt/etc/raddb/sites-enabled/coa
 

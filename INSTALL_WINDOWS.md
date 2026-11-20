@@ -128,7 +128,7 @@ You can connect directly using any Windows database client like **DBeaver**, **N
 - **Port:** `5432`
 - **Database:** `isp_billing`
 - **Username:** `radius_user`
-- **Password:** `SecretRadiusDbPassword2026!`
+- **Password:** Configured in `secrets/db_password.txt` or `$env:POSTGRES_PASSWORD`
 
 To query active monthly partitioned tables from PowerShell:
 ```powershell

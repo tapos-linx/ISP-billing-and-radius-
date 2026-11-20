@@ -208,12 +208,12 @@ docker logs -f isp_freeradius
 docker exec -it isp_postgres psql -U radius_user -d isp_billing -c "SELECT * FROM radcheck;"
 ```
 
-#### Default Container Credentials & Ports
+#### Container Ports & Security Injection
 | Service | Container Name | Port Mapping | Credentials |
 |---|---|---|---|
-| **FreeRADIUS 3.2** | `isp_freeradius` | `1812/udp` (Auth)<br>`1813/udp` (Acct)<br>`3799/udp` (CoA) | Secret: `testing123` / `${RADIUS_SECRET}` |
-| **PostgreSQL 16** | `isp_postgres` | `127.0.0.1:5432` | User: `radius_user`<br>Pass: `SecretRadiusDbPassword2026!`<br>DB: `isp_billing` |
-| **Redis 7** | `isp_redis` | `127.0.0.1:6379` | Token: `SecretRedisToken2026!` |
+| **FreeRADIUS 3.2** | `isp_freeradius` | `1812/udp` (Auth)<br>`1813/udp` (Acct)<br>`3799/udp` (CoA) | Injected via Docker Secrets or `${RADIUS_SECRET}` |
+| **PostgreSQL 16** | `isp_postgres` | `127.0.0.1:5432` | User: `radius_user`<br>Pass: Injected via Docker Secrets or `${POSTGRES_PASSWORD}`<br>DB: `isp_billing` |
+| **Redis 7** | `isp_redis` | `127.0.0.1:6379` | Token: Injected via Docker Secrets or `${REDIS_PASSWORD}` |
 
 ---
 

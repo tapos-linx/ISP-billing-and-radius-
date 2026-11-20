@@ -14,7 +14,7 @@ sql {
     server = "postgres"
     port = 5432
     login = "radius_user"
-    password = "SecretRadiusDbPassword2026!"
+    password = "${DB_PASSWORD}"
     radius_db = "isp_billing"
 
     # Dynamic Client Registration from `nas` table

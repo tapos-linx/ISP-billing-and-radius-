@@ -1,5 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
+$resolveSecret = static function (string $name, ?string $envVal = null): ?string {
+    $secretFile = "/run/secrets/{$name}";
+    if (file_exists($secretFile) && is_readable($secretFile)) {
+        $val = trim((string) file_get_contents($secretFile));
+        if ($val !== '') {
+            return $val;
+        }
+    }
+    return $envVal;
+};
+
 return [
 
     'postmark' => [
@@ -24,13 +37,13 @@ return [
     ],
 
     'bkash' => [
-        'webhook_secret' => env('BKASH_WEBHOOK_SECRET', env('BKASH_APP_SECRET', 'local-test-bkash-secret-123456')),
-        'app_secret'     => env('BKASH_APP_SECRET', 'sandbox_bkash_secret_2026'),
+        'webhook_secret' => $resolveSecret('bkash_secret', env('BKASH_WEBHOOK_SECRET', env('BKASH_APP_SECRET'))),
+        'app_secret'     => $resolveSecret('bkash_secret', env('BKASH_APP_SECRET')),
     ],
 
     'nagad' => [
-        'webhook_secret' => env('NAGAD_WEBHOOK_SECRET', env('NAGAD_MERCHANT_KEY', 'local-test-nagad-secret-123456')),
-        'merchant_key'   => env('NAGAD_MERCHANT_KEY', 'sandbox_nagad_merchant_2026'),
+        'webhook_secret' => $resolveSecret('nagad_secret', env('NAGAD_WEBHOOK_SECRET', env('NAGAD_MERCHANT_KEY'))),
+        'merchant_key'   => $resolveSecret('nagad_secret', env('NAGAD_MERCHANT_KEY')),
     ],
 
 ];

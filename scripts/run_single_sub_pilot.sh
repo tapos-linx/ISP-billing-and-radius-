@@ -357,15 +357,37 @@ add action=dst-nat chain=dstnat dst-port=80 protocol=tcp src-address=10.250.0.0/
 EOF
 }
 
-# --- Resolve RADIUS Secret from Environment or Dotenv ---
+# --- Resolve RADIUS Secret & Redis Password from Secrets, Environment, or Dotenv ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "${SCRIPT_DIR}")"
+
 if [[ -z "${RADIUS_SECRET}" ]]; then
-    if [[ -f "${REPO_DIR}/.env" ]]; then
+    if [[ -f "${REPO_DIR}/secrets/radius_secret.txt" ]]; then
+        RADIUS_SECRET=$(cat "${REPO_DIR}/secrets/radius_secret.txt" | tr -d '\r\n')
+    elif [[ -f "${REPO_DIR}/infra/secrets/radius_secret.txt" ]]; then
+        RADIUS_SECRET=$(cat "${REPO_DIR}/infra/secrets/radius_secret.txt" | tr -d '\r\n')
+    elif [[ -f "${REPO_DIR}/.env" ]]; then
         RADIUS_SECRET=$(grep -E '^RADIUS_SECRET=' "${REPO_DIR}/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true)
     elif [[ -f "${REPO_DIR}/infra/.env" ]]; then
         RADIUS_SECRET=$(grep -E '^RADIUS_SECRET=' "${REPO_DIR}/infra/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true)
     fi
+fi
+
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+if [[ -z "${REDIS_PASSWORD}" ]]; then
+    if [[ -f "${REPO_DIR}/secrets/redis_password.txt" ]]; then
+        REDIS_PASSWORD=$(cat "${REPO_DIR}/secrets/redis_password.txt" | tr -d '\r\n')
+    elif [[ -f "${REPO_DIR}/infra/secrets/redis_password.txt" ]]; then
+        REDIS_PASSWORD=$(cat "${REPO_DIR}/infra/secrets/redis_password.txt" | tr -d '\r\n')
+    elif [[ -f "${REPO_DIR}/.env" ]]; then
+        REDIS_PASSWORD=$(grep -E '^REDIS_PASSWORD=' "${REPO_DIR}/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true)
+    elif [[ -f "${REPO_DIR}/infra/.env" ]]; then
+        REDIS_PASSWORD=$(grep -E '^REDIS_PASSWORD=' "${REPO_DIR}/infra/.env" | cut -d '=' -f2- | tr -d '"' | tr -d "'" || true)
+    fi
+fi
+REDIS_CLI_AUTH=""
+if [[ -n "${REDIS_PASSWORD}" ]]; then
+    REDIS_CLI_AUTH="-a ${REDIS_PASSWORD}"
 fi
 
 # If user requested to only print RouterOS v7 commands, output now and exit cleanly
@@ -419,7 +441,7 @@ cleanup_and_rollback() {
         if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q redis_cluster; then
             docker exec redis_cluster redis-cli del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
         elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q isp_redis; then
-            docker exec isp_redis redis-cli -a SecretRedisToken2026! del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
+            docker exec isp_redis redis-cli ${REDIS_CLI_AUTH} del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
         elif command -v redis-cli >/dev/null 2>&1; then
             redis-cli del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
         fi
@@ -650,7 +672,7 @@ EXEC_PROVISION="
         docker exec redis_cluster redis-cli del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
     elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q isp_postgres; then
         docker exec -i isp_postgres psql -U radius_user -d isp_billing -q -c \"${PROVISION_SQL}\"
-        docker exec isp_redis redis-cli -a SecretRedisToken2026! del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
+        docker exec isp_redis redis-cli ${REDIS_CLI_AUTH} del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
     else
         PGPASSWORD=\"\${DB_PASSWORD:-secure_isp_password_2026}\" psql -U \"\${DB_USER:-isp_admin}\" -d \"\${DB_NAME:-isp_bss_oss}\" -q -c \"${PROVISION_SQL}\"
         redis-cli del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
@@ -777,7 +799,7 @@ remote_exec "
         docker exec redis_cluster redis-cli del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
     elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q isp_postgres; then
         docker exec isp_postgres psql -U radius_user -d isp_billing -q -c \"${UPDATE_WALLED_SQL}\"
-        docker exec isp_redis redis-cli -a SecretRedisToken2026! del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
+        docker exec isp_redis redis-cli ${REDIS_CLI_AUTH} del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
     fi
 "
 
@@ -835,7 +857,7 @@ remote_exec "
         docker exec redis_cluster redis-cli del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
     elif command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q isp_postgres; then
         docker exec isp_postgres psql -U radius_user -d isp_billing -q -c \"${RESTORE_ACTIVE_SQL}\"
-        docker exec isp_redis redis-cli -a SecretRedisToken2026! del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
+        docker exec isp_redis redis-cli ${REDIS_CLI_AUTH} del \"radius:auth:${PILOT_USER}\" >/dev/null 2>&1 || true
     fi
 "
 

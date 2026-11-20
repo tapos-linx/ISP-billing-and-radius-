@@ -100,12 +100,18 @@ if ($RadiusPass -eq "") {
     $RadiusPass = if ($isCitus -or ($ComposeArgs -contains "infra/docker-compose.yml")) { "Tapos@2026" } else { "tapos_pass_2026" }
 }
 if ($RadiusSecret -eq "") {
-    $RadiusSecret = if ($env:RADIUS_SECRET) {
-        $env:RADIUS_SECRET
+    $secretFile = Join-Path (Split-Path -Parent $PSScriptRoot) "secrets\radius_secret.txt"
+    $infraSecretFile = Join-Path (Split-Path -Parent $PSScriptRoot) "infra\secrets\radius_secret.txt"
+    if ($env:RADIUS_SECRET) {
+        $RadiusSecret = $env:RADIUS_SECRET
+    } elseif (Test-Path $secretFile) {
+        $RadiusSecret = (Get-Content $secretFile -Raw).Trim()
+    } elseif (Test-Path $infraSecretFile) {
+        $RadiusSecret = (Get-Content $infraSecretFile -Raw).Trim()
     } elseif ($isCitus -or ($ComposeArgs -contains "infra/docker-compose.yml")) {
-        "secure_radius_secret_key_2026"
+        $RadiusSecret = "secure_radius_secret_key_2026"
     } else {
-        "testing123"
+        $RadiusSecret = "testing123"
     }
 }
 

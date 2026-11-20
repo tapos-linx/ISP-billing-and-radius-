@@ -15,6 +15,8 @@ Simulates complete subscriber lifecycle:
 import hashlib
 import hmac
 import json
+import os
+from pathlib import Path
 import secrets
 import subprocess
 import sys
@@ -29,12 +31,25 @@ CYAN = "\033[96m"
 YELLOW = "\033[93m"
 RESET = "\033[0m"
 
-BSS_BASE_URL = "http://127.0.0.1:8000"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+def load_secret(name: str, fallback: str) -> str:
+    secret_path = REPO_ROOT / "secrets" / f"{name}.txt"
+    if secret_path.exists():
+        return secret_path.read_text(encoding="utf-8").strip()
+    infra_path = REPO_ROOT / "infra" / "secrets" / f"{name}.txt"
+    if infra_path.exists():
+        return infra_path.read_text(encoding="utf-8").strip()
+    return os.environ.get(name.upper(), fallback)
+
+BSS_BASE_URL = os.environ.get("BSS_BASE_URL", "http://127.0.0.1:8000")
 SUB_ID = "e2e00000-0000-0000-0000-000000000099"
 INV_ID = "fa000000-0000-0000-0000-000000000099"
 USERNAME = "e2e_live_user"
 PASSWORD = "E2eLivePass@2026"
-RADIUS_SECRET = "secure_radius_secret_key_2026"
+RADIUS_SECRET = load_secret("radius_secret", "secure_radius_secret_key_2026")
+BKASH_SECRET = load_secret("bkash_secret", "sandbox_bkash_secret_2026")
+REDIS_PASSWORD = load_secret("redis_password", "")
 
 def run_cmd(cmd: list[str]) -> str:
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -98,7 +113,11 @@ def main():
     """
     run_sql(seed_sql)
     # Clear Redis fast-path
-    run_cmd(["docker", "exec", "redis_cluster", "redis-cli", "del", f"radius:auth:{USERNAME}"])
+    del_redis_cmd = ["docker", "exec", "redis_cluster", "redis-cli"]
+    if REDIS_PASSWORD:
+        del_redis_cmd.extend(["-a", REDIS_PASSWORD])
+    del_redis_cmd.extend(["del", f"radius:auth:{USERNAME}"])
+    run_cmd(del_redis_cmd)
     log_pass(f"Seeded '{USERNAME}' in walled_garden_pool with unpaid Mushak-6.3 invoice (BDT 1,050.00).")
 
     # Step 3: Verify Pre-Payment FreeRADIUS radtest returns walled_garden_pool
@@ -112,7 +131,7 @@ def main():
     # Step 4: Dispatch Signed bKash Webhook
     log_step("4/8", "Dispatching Signed bKash Webhook with HMAC-SHA256 & Nonce...")
     trx_id = f"TRX_LIVE_{int(time.time())}_{secrets.token_hex(4).upper()}"
-    secret = "sandbox_bkash_secret_2026"
+    secret = BKASH_SECRET
 
     payload_dict = {
         "trx_id": trx_id,

@@ -34,7 +34,7 @@ services:
     environment:
       POSTGRES_DB: isp_billing
       POSTGRES_USER: radius_user
-      POSTGRES_PASSWORD: SecretRadiusDbPassword2026!
+      POSTGRES_PASSWORD: ${'$'}{POSTGRES_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
@@ -63,7 +63,7 @@ services:
     image: redis:7-alpine
     container_name: isp_redis
     restart: always
-    command: redis-server --requirepass SecretRedisToken2026! --appendonly yes
+    command: redis-server --requirepass ${'$'}{REDIS_PASSWORD} --appendonly yes
     volumes:
       - ./data/redis:/data
     ports:
@@ -235,7 +235,7 @@ sql {
     server = "postgres"
     port = 5432
     login = "radius_user"
-    password = "SecretRadiusDbPassword2026!"
+    password = "${'$'}{DB_PASSWORD}"
     radius_db = "isp_billing"
 
     read_clients = yes

@@ -11,3 +11,10 @@ local.properties
 infra/.env
 *.pem
 infra/aws/staging_instance.json
+
+# Docker & local secrets
+secrets/
+infra/secrets/
+*.key
+*.secret
+
