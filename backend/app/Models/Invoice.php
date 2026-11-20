@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Invoice extends Model
@@ -40,6 +42,7 @@ class Invoice extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'amount_bdt' => 'float',
         'subtotal_bdt' => 'float',
         'vat_rate_percent' => 'float',
@@ -49,6 +52,21 @@ class Invoice extends Model
         'paid_at' => 'datetime',
         'created_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class, 'tenant_id');
+    }
+
+    public function subscriber(): BelongsTo
+    {
+        return $this->belongsTo(Subscriber::class, 'subscriber_id', 'subscriber_id');
+    }
 
     public function payments(): HasMany
     {

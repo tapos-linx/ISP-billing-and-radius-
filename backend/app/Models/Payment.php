@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,14 +37,30 @@ class Payment extends Model
     ];
 
     protected $casts = [
+        'tenant_id' => 'integer',
         'amount_bdt' => 'float',
         'paid_at' => 'datetime',
         'created_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new TenantScope);
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class, 'tenant_id');
+    }
+
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class, 'invoice_id', 'invoice_id');
+    }
+
+    public function subscriber(): BelongsTo
+    {
+        return $this->belongsTo(Subscriber::class, 'subscriber_id', 'subscriber_id');
     }
 
     public function ledgerEntries(): HasMany

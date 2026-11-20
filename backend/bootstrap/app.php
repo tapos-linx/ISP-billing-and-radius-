@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\AuthenticateApiToken;
+use App\Http\Middleware\EnsureUserPermission;
+use App\Http\Middleware\EnsureUserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\VerifyMfsReplayProtection;
 use Illuminate\Foundation\Application;
@@ -19,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'mfs.replay' => VerifyMfsReplayProtection::class,
+            'auth.token' => AuthenticateApiToken::class,
+            'role' => EnsureUserRole::class,
+            'permission' => EnsureUserPermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

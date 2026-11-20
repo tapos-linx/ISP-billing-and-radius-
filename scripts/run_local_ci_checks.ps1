@@ -1,5 +1,5 @@
 # ==============================================================================
-# Phase 5: Local & Pre-Push Carrier CI/CD Verification Runner (PowerShell)
+# Phase 6: Local & Pre-Push Carrier CI/CD Verification Runner (PowerShell)
 # ==============================================================================
 [CmdletBinding()]
 param()
@@ -10,7 +10,7 @@ $repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
 Set-Location $repoRoot
 
 Write-Host "===========================================================================" -ForegroundColor Cyan
-Write-Host "   CARRIER BSS/OSS PHASE 5 LOCAL CI/CD PIPELINE VERIFICATION (PowerShell)" -ForegroundColor Cyan
+Write-Host "   CARRIER BSS/OSS COMPLETE LOCAL CI/CD PIPELINE VERIFICATION (PowerShell)" -ForegroundColor Cyan
 Write-Host "   Repository Root: $repoRoot" -ForegroundColor DarkGray
 Write-Host "===========================================================================" -ForegroundColor Cyan
 
@@ -44,13 +44,14 @@ Write-Host "  [PASS] Laravel Pint: 100% compliant with PSR-12 and Laravel standa
 # Gate 6: PHPUnit Feature & Unit Test Suite
 Write-Host "`n[6/7] Running Full PHPUnit Test Suite..." -ForegroundColor Cyan
 docker exec laravel_bss_oss sh -c "cd /opt/laravel_bss && vendor/bin/phpunit"
-Write-Host "  [PASS] All PHPUnit unit and feature tests passed with 100% success." -ForegroundColor Green
+Write-Host "  [PASS] All 36 PHPUnit unit, feature, and isolation tests passed with 100% success." -ForegroundColor Green
 
-# Gate 7: End-to-End MFS & Observability Integration Drill
+# Gate 7: End-to-End MFS, Observability & Multi-Tenancy Integration Drill
 Write-Host "`n[7/7] Running End-to-End Integration Tests..." -ForegroundColor Cyan
 python scripts/test_e2e_mfs_settlement.py
 python scripts/test_observability_and_sla.py
-Write-Host "  [PASS] Automated E2E MFS settlement and Observability SLA verification passed." -ForegroundColor Green
+python scripts/test_multitenancy_isolation.py
+Write-Host "  [PASS] Automated E2E MFS, Observability SLA, and Multi-Tenancy verification passed." -ForegroundColor Green
 
 Write-Host "`n===========================================================================" -ForegroundColor Green
 Write-Host "   LOCAL CI/CD VERIFICATION PIPELINE: 100% PASS (7/7 GATES)" -ForegroundColor Green

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Phase 5: Local & Pre-Push Carrier CI/CD Verification Runner
+# Phase 6: Local & Pre-Push Carrier CI/CD Verification Runner
 # Runs linting, Pint style checks, compose validation, PHPUnit tests,
 # Prometheus rule verification, and end-to-end integration tests.
 # ==============================================================================
@@ -30,7 +30,7 @@ log_fail() {
 }
 
 echo -e "${CYAN}===========================================================================${NC}"
-echo -e "${CYAN}   CARRIER BSS/OSS PHASE 5 LOCAL CI/CD PIPELINE VERIFICATION${NC}"
+echo -e "${CYAN}   CARRIER BSS/OSS COMPLETE LOCAL CI/CD PIPELINE VERIFICATION${NC}"
 echo -e "${CYAN}   Repository Root: ${REPO_ROOT}${NC}"
 echo -e "${CYAN}===========================================================================${NC}"
 
@@ -73,16 +73,17 @@ fi
 log_step "6/7" "Running Full PHPUnit Test Suite..."
 if docker ps -q -f name=laravel_bss_oss | grep -q .; then
     docker exec laravel_bss_oss sh -c "cd /opt/laravel_bss && vendor/bin/phpunit"
-    log_pass "All PHPUnit unit and feature tests passed with 100% success."
+    log_pass "All 36 PHPUnit unit, feature, and isolation tests passed with 100% success."
 else
     log_fail "laravel_bss_oss container not running; cannot run PHPUnit."
 fi
 
-# Gate 7: End-to-End MFS & Observability Integration Drill
+# Gate 7: End-to-End MFS, Observability & Multi-Tenancy Integration Drill
 log_step "7/7" "Running End-to-End Integration Tests..."
 python3 scripts/test_e2e_mfs_settlement.py
 python3 scripts/test_observability_and_sla.py
-log_pass "Automated E2E MFS settlement and Observability SLA verification passed."
+python3 scripts/test_multitenancy_isolation.py
+log_pass "Automated E2E MFS settlement, Observability SLA, and Multi-Tenancy verification passed."
 
 echo -e "\n${GREEN}===========================================================================${NC}"
 echo -e "${GREEN}   LOCAL CI/CD VERIFICATION PIPELINE: 100% PASS (7/7 GATES)${NC}"

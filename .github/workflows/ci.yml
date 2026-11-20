@@ -121,7 +121,7 @@ jobs:
         working-directory: backend
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      - name: Initialize Database Schema & Seeders
+      - name: Initialize Database Schema, Seeders & Multi-Tenancy
         env:
           PGPASSWORD: secure_isp_password_2026
         run: |
@@ -129,6 +129,7 @@ jobs:
           psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/02-seed-test-data.sql
           psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/03-partition-maintenance.sql
           psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/04-billing-compliance-ledger.sql
+          psql -h 127.0.0.1 -U isp_admin -d isp_bss_oss -f stage1/sql/05-multitenancy-and-rbac.sql
 
       - name: Run PHPUnit Test Suite with Coverage Threshold
         working-directory: backend
@@ -212,6 +213,10 @@ jobs:
       - name: Execute Observability & Carrier SLA Verification (7/7 Gates)
         run: |
           python3 scripts/test_observability_and_sla.py
+
+      - name: Execute Multi-Tenancy & RBAC Data Isolation Verification (7/7 Gates)
+        run: |
+          python3 scripts/test_multitenancy_isolation.py
 
       - name: Tear Down Docker Compose Stack
         if: always()
