@@ -16,7 +16,7 @@ services:
     environment:
       POSTGRES_DB: isp_bss_oss
       POSTGRES_USER: isp_admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-${DB_PASSWORD}}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -37,7 +37,7 @@ services:
     environment:
       POSTGRES_DB: isp_bss_oss
       POSTGRES_USER: isp_admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-${DB_PASSWORD}}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     networks:
       - isp_internal_net
     restart: always
@@ -48,7 +48,7 @@ services:
     environment:
       POSTGRES_DB: isp_bss_oss
       POSTGRES_USER: isp_admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-${DB_PASSWORD}}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     networks:
       - isp_internal_net
     restart: always
@@ -102,7 +102,7 @@ services:
       - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-isp_rabbit}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-${RABBITMQ_PASSWORD}}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     networks:
       - isp_internal_net
     restart: always

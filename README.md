@@ -301,7 +301,7 @@ You can sync and push this repository to GitHub using either method:
 1. Open the project in **Google AI Studio**.
 2. Click the **Project Settings / Options** menu in the top toolbar.
 3. Click **"Push to GitHub"** (or **"Connect to GitHub"**).
-4. Select your GitHub account and choose whether to push to an existing repository or create a new one (e.g., `isp-billing-telecom-console`).
+4. Select your GitHub account and choose whether to push to an existing repository or create a new one (e.g., `ISP-billing-and-radius`).
 5. AI Studio will automatically commit and push all project files, configurations, and scripts to your repository!
 
 ### Method 2: Using Git Command Line
@@ -317,7 +317,7 @@ git commit -m "Initial Release: ISP Billing & Telecom BSS/OSS Architect Console 
 git branch -M main
 
 # 4. Add your GitHub repository URL (replace with your repo)
-git remote add origin https://github.com/YOUR_USERNAME/isp-billing-telecom-console.git
+git remote add origin https://github.com/tapos-linx/ISP-billing-and-radius.git
 
 # 5. Push code to GitHub
 git push -u origin main

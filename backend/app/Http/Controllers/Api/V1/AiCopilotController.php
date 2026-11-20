@@ -24,7 +24,7 @@ final class AiCopilotController extends Controller
         ]);
 
         $apiKey = (string) env('GEMINI_API_KEY', '');
-        $model  = (string) env('GEMINI_FLASH_MODEL', 'gemini-2.5-flash');
+        $model  = (string) env('GEMINI_MODEL', env('GEMINI_FLASH_MODEL', 'gemini-3-flash-preview'));
 
         if ($apiKey === '' || str_starts_with($apiKey, 'REPLACE_WITH_')) {
             return response()->json(['error' => 'GEMINI_API_KEY is not configured'], 503);

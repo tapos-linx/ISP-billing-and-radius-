@@ -46,8 +46,8 @@ Restart your computer if prompted by Windows.
 ### Step 3: Clone or Extract the Repository
 Download and extract the project or clone via Git:
 ```powershell
-git clone https://github.com/YOUR_USERNAME/isp-billing-telecom-console.git
-cd isp-billing-telecom-console
+git clone https://github.com/tapos-linx/ISP-billing-and-radius.git
+cd ISP-billing-and-radius
 ```
 
 ---

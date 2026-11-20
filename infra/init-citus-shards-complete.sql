@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS nas (
     type VARCHAR(30) NOT NULL DEFAULT 'mikrotik',
     ports INT DEFAULT 1812,
     secret VARCHAR(128) NOT NULL,
+    server VARCHAR(64),
     coa_port INT NOT NULL DEFAULT 3799,
     description VARCHAR(200)
 );
@@ -41,6 +42,32 @@ CREATE TABLE IF NOT EXISTS radgroupreply (
     value VARCHAR(253) NOT NULL
 );
 SELECT create_reference_table('radgroupreply');
+
+CREATE TABLE IF NOT EXISTS radusergroup (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(64) NOT NULL DEFAULT '',
+    groupname VARCHAR(64) NOT NULL DEFAULT '',
+    priority INT NOT NULL DEFAULT 1
+);
+SELECT create_reference_table('radusergroup');
+
+CREATE TABLE IF NOT EXISTS radgroupcheck (
+    id SERIAL PRIMARY KEY,
+    groupname VARCHAR(64) NOT NULL DEFAULT '',
+    attribute VARCHAR(64) NOT NULL DEFAULT '',
+    op CHAR(2) NOT NULL DEFAULT '==',
+    value VARCHAR(253) NOT NULL DEFAULT ''
+);
+SELECT create_reference_table('radgroupcheck');
+
+CREATE TABLE IF NOT EXISTS radpostauth (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(64) NOT NULL,
+    pass VARCHAR(64) NOT NULL,
+    reply VARCHAR(32) NOT NULL,
+    authdate TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+SELECT create_reference_table('radpostauth');
 
 -- -----------------------------------------------------------------------------
 -- 2. Distributed Core Tables (128 Shards Co-located on subscriber_id)

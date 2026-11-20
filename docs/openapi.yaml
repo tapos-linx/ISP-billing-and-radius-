@@ -45,6 +45,15 @@ paths:
                 vlan_id: { type: integer }
       responses:
         '201': { description: Subscriber provisioned and synced to RADIUS }
+  /app/subscribers:
+    get:
+      summary: Android Carrier Console subscriber directory sync
+      parameters:
+        - name: query
+          in: query
+          schema: { type: string }
+      responses:
+        '200': { description: List of subscribers formatted for Android Jetpack Compose }
   /coa/disconnect:
     post:
       summary: Send RFC 5176 Disconnect-Request (PoD) over UDP 3799 (<500ms)
@@ -77,6 +86,23 @@ paths:
                 rate_limit: { type: string, example: "50M/50M" }
       responses:
         '200': { description: CoA-ACK received }
+  /api/radius/coa:
+    post:
+      summary: Unified CoA endpoint for Android App and RouterOS BNG
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, nas_ip, action]
+              properties:
+                username: { type: string }
+                nas_ip: { type: string }
+                action: { type: string, enum: [disconnect, change_speed, restore] }
+                rate_limit: { type: string }
+      responses:
+        '200': { description: CoA or Disconnect ACK confirmed }
   /webhooks/bkash:
     post:
       summary: Idempotent bKash Tokenized Checkout webhook (HMAC-SHA256 + Redis SETNX)
@@ -88,6 +114,63 @@ paths:
       summary: Idempotent Nagad Direct API payment callback
       responses:
         '200': { description: Invoice settled and line restored }
+  /api/webhooks/mfs:
+    post:
+      summary: Unified MFS Payment Gateway Webhook (Android & Cloud Run)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [gateway, trx_id, amount, invoice_id]
+              properties:
+                gateway: { type: string, enum: [bkash, nagad, rocket, upay] }
+                trx_id: { type: string }
+                amount: { type: number }
+                invoice_id: { type: integer }
+      responses:
+        '200': { description: Instant payment reconciliation complete }
+  /self-care/pay/{gateway}:
+    post:
+      summary: Stage 5 Customer Self-Care Invoice Payment Initialization
+      parameters:
+        - name: gateway
+          in: path
+          required: true
+          schema: { type: string, enum: [bkash, nagad, sslcommerz] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoice_id]
+              properties:
+                invoice_id: { type: integer }
+      responses:
+        '200': { description: Payment redirect URL or execute token returned }
+        '404': { description: Invoice not found or already paid }
+  /two-factor-challenge:
+    post:
+      summary: Stage 5 Customer Self-Care Two-Factor Authentication (TOTP) Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^[0-9]{6}$', example: "123456" }
+      responses:
+        '200': { description: 2FA challenge passed and session authenticated }
+        '422': { description: Invalid 2FA code }
+  /self-care/2fa/toggle:
+    post:
+      summary: Stage 5 Enable or Disable Two-Factor Authentication
+      responses:
+        '200': { description: 2FA status toggled }
   /jobs/expire-overdue:
     post:
       summary: Cloud Scheduler 00:01 AM Dhaka job to expire overdue subscribers & kick via PoD
@@ -98,6 +181,11 @@ paths:
       summary: Fetch live PPPoE sessions, RouterOS queues, and OLT/GenieACS optical Rx (dBm)
       responses:
         '200': { description: Telemetry snapshot }
+  /app/telemetry:
+    get:
+      summary: Android NOC Command Center live telemetry feed
+      responses:
+        '200': { description: Live streaming telemetry for mobile client }
   /ai/diagnose:
     post:
       summary: Gemini API NOC Copilot diagnostics for radpostauth & optical drops
