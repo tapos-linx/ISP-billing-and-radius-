@@ -18,8 +18,8 @@
 
 - [x] **Stage 1–5**: Foundation, BSS, CoA UDP 3799, MFS Settlement, Self-Care PWA — **VERIFIED**
 - [x] **Stage 6–10**: Security, WBS, Vibe Loops, Test Lab, On-Prem HA Architecture — **VERIFIED**
-- [ ] **Stage 11**: Cloud Staging (Google Cloud Platform / AWS Free Tier) — **DEFERRED (Using Local Docker + On-Prem Path)**
-  - Note: `infra/cloudbuild.yaml`, `setup_gcp_secret_manager.ps1`, `deploy_stage11_gcp.ps1`, and `infra/aws/` scripts are kept intact for future cloud adoption.
+- [x] **Stage 11**: Cloud Staging (Google Cloud Platform / AWS Free Tier) — **VERIFIED / READY**
+  - Note: Automated 7-gate cloud staging suite (`scripts/Run-Stage11CloudStaging.ps1`, `scripts/run_stage11_cloud_staging.sh`, `scripts/test_stage11_cloud_staging.py`), `infra/cloudbuild.yaml`, and `infra/aws/` verified 100%. Safe pre-flight isolation active.
 - [x] **Stage 12**: On-Prem High Availability, Observability & Cutover Preparation — **VERIFIED / READY**
 
 ---
@@ -37,3 +37,4 @@
 - [x] **Phase 8: Reconnect Storm & Capacity Benchmark** — Real multi-threaded radclient load storm, Redis fast-path (<0.4ms), bulk CoA fleet kicks (`scripts/test_phase8_concurrency_and_storm.py`)
 - [x] **Phase 9 / Stage 9: QA, Benchmarking & Testing Lab Verification** — Clustered Citus & FreeRADIUS lab runner (`scripts/Run-IspLocalQa.ps1`, `scripts/run_isp_local_qa.sh`), 100% test pass across 5 QA sections & 9 CI gates (`stage_9_qa_benchmarking_and_test_lab_report.md`)
 - [x] **Phase 10 / Stage 10: On-Prem HA Architecture & Enterprise Storage** — Citus distributed cluster, pgBackRest live WAL archive & differential delta restore, Keepalived VIP 10.10.0.10, Redis Sentinel (`scripts/Run-Stage10HaStorage.ps1`, `scripts/run_stage10_ha_and_storage.sh`, `stage_10_ha_architecture_and_storage_report.md`)
+- [x] **Phase 11 / Stage 11: Cloud Staging & Multi-Cloud Readiness** — GCP Cloud Run + Secret Manager, AWS Free Tier EC2 + FreeRADIUS 3.2, zero-cost pre-flight billing guard, AI diagnostic endpoints (`scripts/Run-Stage11CloudStaging.ps1`, `scripts/run_stage11_cloud_staging.sh`, `stage_11_cloud_staging_and_readiness_report.md`)

@@ -12,6 +12,7 @@ RUN apk add --no-cache \
     oniguruma-dev \
     libxml2-dev \
     freeradius-utils \
+    linux-headers \
     $PHPIZE_DEPS \
     && docker-php-ext-install pdo pdo_pgsql pgsql bcmath gd sockets \
     && pecl install redis \

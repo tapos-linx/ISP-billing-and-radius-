@@ -4,7 +4,7 @@ steps:
     args:
       - 'build'
       - '-f'
-      - 'Dockerfile.prod'
+      - 'infra/Dockerfile.prod'
       - '-t'
       - 'asia-south1-docker.pkg.dev/$PROJECT_ID/isp-billing/bss-api:$COMMIT_SHA'
       - '.'

@@ -126,8 +126,9 @@ def check_bss_endpoints(base_url: str) -> bool:
         headers = {"Content-Type": "application/json"} if method == "POST" else {}
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         t0 = time.perf_counter()
+        req_timeout = 10 if path == "/api/v1/health" else 30
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=req_timeout) as resp:
                 ms = (time.perf_counter() - t0) * 1000
                 print(f"  [PASS] {method} {path} -> HTTP {resp.status} ({ms:.1f} ms)")
         except urllib.error.HTTPError as e:

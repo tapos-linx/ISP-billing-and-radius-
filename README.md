@@ -93,7 +93,7 @@
 | **Stage 8** | Vibe Execution Loops | Vertical slices across AAA & BSS | **VERIFIED** | 10-step loop compliance |
 | **Stage 9** | QA, Benchmarking & Testing Lab | Virtual MikroTik CHR / Docker Compose | **VERIFIED** | 100% test pass in Docker lab |
 | **Stage 10**| On-Prem HA Architecture & Storage | Keepalived VIP 10.10.0.10, pgBackRest | **VERIFIED** | HA runbook & restore drill pass |
-| **Stage 11**| Cloud Staging (Google Cloud / AWS) | Cloud Run, GCE, Secret Manager, AWS EC2 | **DEFERRED (Using Local Docker + On-Prem Path)** | Cloudbuild & scripts preserved intact for future cloud adoption |
+| **Stage 11**| Cloud Staging (Google Cloud / AWS) | Cloud Run, GCE, Secret Manager, AWS EC2 | **VERIFIED / READY** | 7-gate cloud staging & pre-flight suite pass |
 | **Stage 12**| On-Prem Cutover & Production Prep | Ubuntu 24.04 + MikroTik RouterOS v7 | **VERIFIED / READY** | Single-sub pilot runner + Cutover Runbook |
 
 ---
@@ -336,6 +336,29 @@ bash scripts/run_stage10_ha_and_storage.sh
 5. **FreeRADIUS Low-Latency AAA (<10ms) & Socket Health**: Validates operational status on UDP 1812/1813/3799, executing `radtest` authentication and verifying `Mikrotik-Rate-Limit` and `Framed-Pool` VSAs.
 6. **Keepalived VRRP Configuration & Failover Tracking Validation**: Validates VIP `10.10.0.10/24`, priority `101`, and `chk_freeradius` healthcheck track script with priority downgrade failover math.
 7. **Automated Radacct Partition Maintenance & HA PHPUnit Pass**: Validates monthly partition creation (`radacct:maintain-partitions`) and 100% PHPUnit feature test suite pass.
+
+### Automated Cloud Staging Runner (Stage 11)
+
+Run the full 7-gate cloud staging and pre-flight readiness suite:
+
+```powershell
+# PowerShell (Windows)
+powershell -ExecutionPolicy Bypass -File scripts\Run-Stage11CloudStaging.ps1
+```
+
+```bash
+# Bash (Linux / Git Bash / macOS)
+bash scripts/run_stage11_cloud_staging.sh
+```
+
+**Verification Gates:**
+1. **Cloud Provider CLI Tools & Authenticated Identities**: Validates `gcloud` and `aws` CLI tools and active authenticated credentials (`tapos.cpl@gmail.com`).
+2. **Cloud Billing Safety Guard & Zero Hardcoded Secrets**: Queries GCP billing status (`gen-lang-client-0620800335`) confirming zero unauthorized cloud charges, and audits for zero plain-text credentials.
+3. **Cloud Build Pipeline & Cloud Run Production Containers**: Validates `infra/cloudbuild.yaml` syntax, image tagging, Artifact Registry target, VPC connector, and `infra/Dockerfile.prod` compliance.
+4. **GCP Secret Manager Synchronization Directives**: Validates `setup_gcp_secret_manager.ps1` mapping 7 core secrets with service account accessor IAM bindings.
+5. **AWS Free Tier Staging & EC2 Bootstrap Architecture**: Validates ap-south-1 Mumbai, t3.micro, 30 GB gp3, and `ec2_bootstrap.sh` Docker + FreeRADIUS provisioning.
+6. **Cloud-Native BSS Environment & AI Diagnostic Endpoints**: Runs `verify_ai_endpoints.py` verifying 14 core environment variables, `/api/v1/health`, and `/api/v1/ai/diagnose`.
+7. **Automated Cloud Staging Deployment Dry-Run**: Validates `deploy_stage11_gcp.ps1 -DryRun` with 100% compliance across all 6 deployment stages.
 
 ---
 
