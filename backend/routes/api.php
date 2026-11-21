@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\IpdrController;
 use App\Http\Controllers\Api\V1\IpPoolController;
 use App\Http\Controllers\Api\V1\MetricsController;
 use App\Http\Controllers\Api\V1\MfsWebhookController;
+use App\Http\Controllers\Api\V1\NetworkAndFieldIntelligenceController;
 use App\Http\Controllers\Api\V1\NetworkOperationsController;
 use App\Http\Controllers\Api\V1\SubscriberController;
 use App\Http\Controllers\Api\V1\TenantController;
@@ -229,6 +230,33 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('voip')->group(function (): void {
         Route::post('/trunks', [EnterpriseAndVoipController::class, 'registerSipTrunk']);
         Route::post('/cdrs', [EnterpriseAndVoipController::class, 'ingestVoipCdr']);
+    });
+
+    // Phase 3 (P2 Batch 2): Network Intelligence, BGP/IXP, DNS Sinkhole, OTDR & AI Forecasting
+    Route::prefix('network/bgp')->group(function (): void {
+        Route::post('/peers', [NetworkAndFieldIntelligenceController::class, 'registerBgpPeer']);
+        Route::post('/peers/{id}/telemetry', [NetworkAndFieldIntelligenceController::class, 'recordBgpTelemetry']);
+        Route::get('/ratios', [NetworkAndFieldIntelligenceController::class, 'getPeeringRatios']);
+    });
+
+    Route::prefix('network/dns')->group(function (): void {
+        Route::post('/rules', [NetworkAndFieldIntelligenceController::class, 'addSinkholeRule']);
+        Route::post('/evaluate', [NetworkAndFieldIntelligenceController::class, 'evaluateDnsQuery']);
+        Route::get('/compliance', [NetworkAndFieldIntelligenceController::class, 'getDnsCompliance']);
+    });
+
+    Route::prefix('network/otdr')->group(function (): void {
+        Route::post('/analyze', [NetworkAndFieldIntelligenceController::class, 'analyzeOtdrTrace']);
+    });
+
+    Route::prefix('field-mobile')->group(function (): void {
+        Route::post('/scan-qr', [NetworkAndFieldIntelligenceController::class, 'scanAssetQr']);
+        Route::post('/sync-offline', [NetworkAndFieldIntelligenceController::class, 'syncOfflineEvents']);
+    });
+
+    Route::prefix('analytics/capacity')->group(function (): void {
+        Route::post('/forecast', [NetworkAndFieldIntelligenceController::class, 'forecastResource']);
+        Route::post('/nearest-technician', [NetworkAndFieldIntelligenceController::class, 'findNearestTechnician']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
