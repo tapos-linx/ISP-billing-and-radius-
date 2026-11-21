@@ -21,6 +21,7 @@
 - [x] **Stage 11**: Cloud Staging (Google Cloud Platform / AWS Free Tier) — **VERIFIED / READY**
   - Note: Automated 7-gate cloud staging suite (`scripts/Run-Stage11CloudStaging.ps1`, `scripts/run_stage11_cloud_staging.sh`, `scripts/test_stage11_cloud_staging.py`), `infra/cloudbuild.yaml`, and `infra/aws/` verified 100%. Safe pre-flight isolation active.
 - [x] **Stage 12**: On-Prem High Availability, Observability & Cutover Preparation — **VERIFIED / READY**
+- [x] **Stage 13**: Evolution & Day-2 Carrier Operations (Release 2.0 Roadmap, Tech Debt, Postmortem Engine) — **VERIFIED / READY**
 
 ---
 
@@ -39,3 +40,4 @@
 - [x] **Phase 10 / Stage 10: On-Prem HA Architecture & Enterprise Storage** — Citus distributed cluster, pgBackRest live WAL archive & differential delta restore, Keepalived VIP 10.10.0.10, Redis Sentinel (`scripts/Run-Stage10HaStorage.ps1`, `scripts/run_stage10_ha_and_storage.sh`, `stage_10_ha_architecture_and_storage_report.md`)
 - [x] **Phase 11 / Stage 11: Cloud Staging & Multi-Cloud Readiness** — GCP Cloud Run + Secret Manager, AWS Free Tier EC2 + FreeRADIUS 3.2, zero-cost pre-flight billing guard, AI diagnostic endpoints (`scripts/Run-Stage11CloudStaging.ps1`, `scripts/run_stage11_cloud_staging.sh`, `stage_11_cloud_staging_and_readiness_report.md`)
 - [x] **Phase 12 / Stage 12: Zero-Downtime Production Cutover & Rollback Verification** — 8-gate cutover & pilot engine (`scripts/Run-Stage12Cutover.ps1`, `scripts/run_stage12_cutover.sh`, `scripts/test_stage12_cutover_and_pilot.py`), RouterOS v7 pilot directives, 5-minute rollback assurance (`stage_12_ha_observability_and_cutover_report.md`)
+- [x] **Phase 13 / Stage 13: Evolution & Day-2 Carrier Operations** — Post-cutover feedback triage, tech debt register (`docs/11-evolution/TECHNICAL_DEBT.md`), blameless postmortem engine (`docs/11-evolution/INCIDENT_POSTMORTEM_RUNBOOK.md`), and Release 2.0 roadmap (`scripts/Run-Stage13Evolution.ps1`, `scripts/run_stage13_evolution.sh`, `scripts/test_stage13_evolution_and_day2_ops.py`, `stage_13_evolution_and_day2_ops_report.md`)
