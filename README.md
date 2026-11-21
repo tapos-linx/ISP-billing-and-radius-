@@ -94,7 +94,7 @@
 | **Stage 9** | QA, Benchmarking & Testing Lab | Virtual MikroTik CHR / Docker Compose | **VERIFIED** | 100% test pass in Docker lab |
 | **Stage 10**| On-Prem HA Architecture & Storage | Keepalived VIP 10.10.0.10, pgBackRest | **VERIFIED** | HA runbook & restore drill pass |
 | **Stage 11**| Cloud Staging (Google Cloud / AWS) | Cloud Run, GCE, Secret Manager, AWS EC2 | **VERIFIED / READY** | 7-gate cloud staging & pre-flight suite pass |
-| **Stage 12**| On-Prem Cutover & Production Prep | Ubuntu 24.04 + MikroTik RouterOS v7 | **VERIFIED / READY** | Single-sub pilot runner + Cutover Runbook |
+| **Stage 12**| On-Prem Cutover & Production Prep | Ubuntu 24.04 + MikroTik RouterOS v7 | **VERIFIED / READY** | 8-gate master cutover & pilot drill pass |
 
 ---
 
@@ -359,6 +359,30 @@ bash scripts/run_stage11_cloud_staging.sh
 5. **AWS Free Tier Staging & EC2 Bootstrap Architecture**: Validates ap-south-1 Mumbai, t3.micro, 30 GB gp3, and `ec2_bootstrap.sh` Docker + FreeRADIUS provisioning.
 6. **Cloud-Native BSS Environment & AI Diagnostic Endpoints**: Runs `verify_ai_endpoints.py` verifying 14 core environment variables, `/api/v1/health`, and `/api/v1/ai/diagnose`.
 7. **Automated Cloud Staging Deployment Dry-Run**: Validates `deploy_stage11_gcp.ps1 -DryRun` with 100% compliance across all 6 deployment stages.
+
+### Automated Cutover & Rollback Runner (Stage 12)
+
+Run the full 8-gate zero-downtime production cutover and maintenance window drill:
+
+```powershell
+# PowerShell (Windows)
+powershell -ExecutionPolicy Bypass -File scripts\Run-Stage12Cutover.ps1
+```
+
+```bash
+# Bash (Linux / Git Bash / macOS)
+bash scripts/run_stage12_cutover.sh
+```
+
+**Verification Gates:**
+1. **Pre-Cutover T-72h Infrastructure & Cluster Sanity**: Validates Citus shards, pgBackRest delta restore, and Redis master with `noeviction` memory policy.
+2. **Pre-Cutover T-24h MikroTik WireGuard & RouterOS v7 Directives**: Validates RouterOS v7 filter rules, UDP 3799 restriction, and 5-minute interim accounting.
+3. **Maintenance Window Phase 1 - Database LSN & Fast-Path Pre-Warming**: Pre-populates Redis fast-path subscriber cache (< 0.4ms SLA target).
+4. **Maintenance Window Phase 2 - FreeRADIUS Dual-Node / VIP Activation**: Tests `radtest` authentication returning 20M/20M rate limit in < 10ms.
+5. **Maintenance Window Phase 3 - MikroTik Switchover & CoA / PoD Disconnect**: Dispatches UDP 3799 `Disconnect-Request` and validates `Disconnect-ACK` in < 500ms.
+6. **Maintenance Window Phase 4 - Fintech & End-to-End MFS Webhook SLA**: Validates bKash/Nagad HMAC-SHA256, SETNX replay prevention, NBR 5% Mushak-6.3 VAT, and BTRC 730-day audit logging in < 3.0s.
+7. **Maintenance Window Phase 5 - Production Observability Sign-Off**: Verifies Prometheus `/metrics`, 7 SLA alert rules, Grafana NOC SLA dashboard, and Loki log shipper.
+8. **Single-Subscriber Pilot & 5-Minute Zero-Downtime Rollback Assurance**: Executes dry-run pilot validation, zero-stray teardown, and verifies the 5-minute emergency rollback sequence.
 
 ---
 
