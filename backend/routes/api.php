@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\MetricsController;
 use App\Http\Controllers\Api\V1\MfsWebhookController;
 use App\Http\Controllers\Api\V1\NetworkAndFieldIntelligenceController;
 use App\Http\Controllers\Api\V1\NetworkOperationsController;
+use App\Http\Controllers\Api\V1\SipSignalingController;
 use App\Http\Controllers\Api\V1\SubscriberController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\Api\V1\TrafficAndAaaController;
@@ -282,6 +283,13 @@ Route::prefix('v1')->group(function (): void {
 
     Route::prefix('audit')->group(function (): void {
         Route::get('/verify-chain', [HaAndBankingController::class, 'verifyAuditChain']);
+    });
+
+    // Release 2.0 (Epic 2): SIP Signaling Bridge (FreeSWITCH ESL / Kamailio API)
+    Route::prefix('sip')->group(function (): void {
+        Route::post('/authorize-invite', [SipSignalingController::class, 'authorizeInvite']);
+        Route::post('/process-bye', [SipSignalingController::class, 'processBye']);
+        Route::post('/release-reservation', [SipSignalingController::class, 'releaseReservation']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints

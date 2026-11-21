@@ -12,4 +12,5 @@ Route::post('/self-care/2fa/toggle', [SelfCareController::class, 'toggleTwoFacto
 
 // P0-1: NOC Command Console
 Route::get('/noc/dashboard', [NocConsoleController::class, 'dashboard'])->name('noc.dashboard');
+Route::get('/noc/carrier', [NocConsoleController::class, 'carrierOperations'])->name('noc.carrier');
 Route::get('/noc/resources/{resource}', [NocConsoleController::class, 'resources'])->name('noc.resources');

@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-bss-api
+  namespace: carrier-bss
+  labels:
+    app: laravel-bss
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: laravel-bss
+  template:
+    metadata:
+      labels:
+        app: laravel-bss
+    spec:
+      containers:
+        - name: app
+          image: taposlinx/isp-bss-oss:latest
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - secretRef:
+                name: bss-env-secrets
+            - configMapRef:
+                name: bss-app-config
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: laravel-bss-hpa
+  namespace: carrier-bss
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: laravel-bss-api
+  minReplicas: 4
+  maxReplicas: 16
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-queue-consumer
+  namespace: carrier-bss
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: laravel-queue
+  template:
+    metadata:
+      labels:
+        app: laravel-queue
+    spec:
+      containers:
+        - name: worker
+          image: taposlinx/isp-bss-oss:latest
+          command: ["php", "artisan", "queue:work", "--queue=high,default,ipdr_batches", "--tries=3"]
+          envFrom:
+            - secretRef:
+                name: bss-env-secrets
+            - configMapRef:
+                name: bss-app-config
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"

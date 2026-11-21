@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\BeftnBatch;
+use App\Models\DrFailoverDrill;
 use App\Models\Invoice;
 use App\Models\NetworkDevice;
 use App\Models\Olt;
 use App\Models\Onu;
+use App\Models\OtdrTrace;
 use App\Models\Subscriber;
 use App\Models\Tariff;
 use App\Models\Ticket;
+use App\Models\VoipCdr;
+use App\Services\Radius\AnycastRadiusTopologyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,6 +79,39 @@ class NocConsoleController extends Controller
             'status' => 'success',
             'resource' => $resource,
             'data' => $data,
+        ]);
+    }
+
+    /**
+     * Carrier Operations & Multi-Region Telemetry View
+     */
+    public function carrierOperations(
+        Request $request,
+        AnycastRadiusTopologyService $anycastService
+    ): Response|JsonResponse {
+        $anycastTopology = $anycastService->getTopologyStatus();
+        $recentBatches = BeftnBatch::withoutGlobalScopes()->latest()->limit(5)->get();
+        $recentCdrs = VoipCdr::withoutGlobalScopes()->latest()->limit(10)->get();
+        $recentTraces = OtdrTrace::withoutGlobalScopes()->orderByDesc('traced_at')->limit(5)->get();
+        $recentDrills = DrFailoverDrill::withoutGlobalScopes()->latest()->limit(5)->get();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'status' => 'success',
+                'anycast_topology' => $anycastTopology,
+                'recent_batches' => $recentBatches,
+                'recent_cdrs' => $recentCdrs,
+                'recent_traces' => $recentTraces,
+                'recent_drills' => $recentDrills,
+            ]);
+        }
+
+        return Inertia::render('Noc/CarrierOperations', [
+            'anycastTopology' => $anycastTopology,
+            'recentClearingBatches' => $recentBatches,
+            'recentSipCdrs' => $recentCdrs,
+            'recentOtdrTraces' => $recentTraces,
+            'recentDrDrills' => $recentDrills,
         ]);
     }
 }

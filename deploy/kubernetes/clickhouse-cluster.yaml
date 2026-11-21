@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: clickhouse-ipdr-cluster
+  namespace: carrier-bss
+  labels:
+    app: clickhouse
+    role: btrc-ipdr
+spec:
+  serviceName: clickhouse-ipdr-headless
+  replicas: 2
+  selector:
+    matchLabels:
+      app: clickhouse
+      role: btrc-ipdr
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+        role: btrc-ipdr
+    spec:
+      containers:
+        - name: clickhouse
+          image: clickhouse/clickhouse-server:24.3-alpine
+          ports:
+            - containerPort: 8123
+              name: http
+            - containerPort: 9000
+              name: native
+          resources:
+            requests:
+              cpu: "8000m"
+              memory: "32Gi"
+            limits:
+              cpu: "16000m"
+              memory: "64Gi"
+          volumeMounts:
+            - name: clickhouse-data
+              mountPath: /var/lib/clickhouse
+  volumeClaimTemplates:
+    - metadata:
+        name: clickhouse-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: fast-nvme-sc
+        resources:
+          requests:
+            storage: 5000Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse-service
+  namespace: carrier-bss
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8123
+      targetPort: 8123
+      name: http
+    - port: 9000
+      targetPort: 9000
+      name: native
+  selector:
+    app: clickhouse
+    role: btrc-ipdr

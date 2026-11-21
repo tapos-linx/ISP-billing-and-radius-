@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: citus-coordinator
+  namespace: carrier-bss
+  labels:
+    app: citus
+    role: coordinator
+spec:
+  serviceName: citus-coordinator-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citus
+      role: coordinator
+  template:
+    metadata:
+      labels:
+        app: citus
+        role: coordinator
+    spec:
+      containers:
+        - name: citus
+          image: citusdata/citus:12.1
+          env:
+            - name: POSTGRES_DB
+              value: isp_bss_oss
+            - name: POSTGRES_USER
+              value: isp_admin
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bss-db-credentials
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+              name: postgres
+          resources:
+            requests:
+              cpu: "4000m"
+              memory: "16Gi"
+            limits:
+              cpu: "8000m"
+              memory: "32Gi"
+          volumeMounts:
+            - name: citus-coord-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: citus-coord-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: fast-nvme-sc
+        resources:
+          requests:
+            storage: 500Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: citus-workers
+  namespace: carrier-bss
+  labels:
+    app: citus
+    role: worker
+spec:
+  serviceName: citus-workers-headless
+  replicas: 4
+  selector:
+    matchLabels:
+      app: citus
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: citus
+        role: worker
+    spec:
+      containers:
+        - name: citus
+          image: citusdata/citus:12.1
+          env:
+            - name: POSTGRES_DB
+              value: isp_bss_oss
+            - name: POSTGRES_USER
+              value: isp_admin
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bss-db-credentials
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+              name: postgres
+          resources:
+            requests:
+              cpu: "8000m"
+              memory: "32Gi"
+            limits:
+              cpu: "16000m"
+              memory: "64Gi"
+          volumeMounts:
+            - name: citus-worker-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: citus-worker-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: fast-nvme-sc
+        resources:
+          requests:
+            storage: 2000Gi

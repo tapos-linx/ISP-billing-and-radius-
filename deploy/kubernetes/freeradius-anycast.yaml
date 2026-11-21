@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: freeradius-anycast
+  namespace: carrier-bss
+  labels:
+    app: freeradius
+    tier: aaa-anycast
+spec:
+  selector:
+    matchLabels:
+      app: freeradius
+      tier: aaa-anycast
+  template:
+    metadata:
+      labels:
+        app: freeradius
+        tier: aaa-anycast
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: freeradius
+          image: freeradius/freeradius-server:3.2.3-alpine
+          ports:
+            - containerPort: 1812
+              hostPort: 1812
+              protocol: UDP
+              name: radius-auth
+            - containerPort: 1813
+              hostPort: 1813
+              protocol: UDP
+              name: radius-acct
+            - containerPort: 3799
+              hostPort: 3799
+              protocol: UDP
+              name: radius-coa
+          resources:
+            requests:
+              cpu: "2000m"
+              memory: "4Gi"
+            limits:
+              cpu: "4000m"
+              memory: "8Gi"
+        - name: bgp-vip-announcer
+          image: frrouting/frr:v8.5.2
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW", "SYS_ADMIN"]
+          volumeMounts:
+            - name: frr-config
+              mountPath: /etc/frr
+      volumes:
+        - name: frr-config
+          configMap:
+            name: anycast-frr-config
