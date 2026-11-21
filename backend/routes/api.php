@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\AiCopilotController;
 use App\Http\Controllers\Api\V1\BillingLifecycleController;
 use App\Http\Controllers\Api\V1\CardPaymentController;
 use App\Http\Controllers\Api\V1\CommercialAndResellerController;
+use App\Http\Controllers\Api\V1\EnterpriseAndVoipController;
 use App\Http\Controllers\Api\V1\FieldAndCpeController;
 use App\Http\Controllers\Api\V1\FinOpsAndBiController;
 use App\Http\Controllers\Api\V1\HelpdeskController;
@@ -209,6 +210,25 @@ Route::prefix('v1')->group(function (): void {
 
     Route::prefix('analytics')->group(function (): void {
         Route::get('/bi-overview', [FinOpsAndBiController::class, 'getExecutiveBiOverview']);
+    });
+
+    // Phase 3 (P2 Batch 1): Enterprise SLA, Wholesale Carrier, 95th Percentile & VoIP
+    Route::prefix('enterprise')->group(function (): void {
+        Route::post('/circuits', [EnterpriseAndVoipController::class, 'registerCircuit']);
+        Route::post('/circuits/{id}/audit-sla', [EnterpriseAndVoipController::class, 'auditCircuitSla']);
+        Route::post('/circuits/{id}/samples', [EnterpriseAndVoipController::class, 'recordBandwidthSample']);
+        Route::post('/circuits/{id}/calculate-95th', [EnterpriseAndVoipController::class, 'calculate95thPercentile']);
+    });
+
+    Route::prefix('wholesale')->group(function (): void {
+        Route::post('/carriers', [EnterpriseAndVoipController::class, 'registerCarrier']);
+        Route::post('/carriers/{id}/tunnels', [EnterpriseAndVoipController::class, 'provisionTunnel']);
+        Route::post('/carriers/{id}/invoice', [EnterpriseAndVoipController::class, 'generateWholesaleInvoice']);
+    });
+
+    Route::prefix('voip')->group(function (): void {
+        Route::post('/trunks', [EnterpriseAndVoipController::class, 'registerSipTrunk']);
+        Route::post('/cdrs', [EnterpriseAndVoipController::class, 'ingestVoipCdr']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
