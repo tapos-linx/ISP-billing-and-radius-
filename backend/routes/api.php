@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\IpdrController;
 use App\Http\Controllers\Api\V1\IpPoolController;
 use App\Http\Controllers\Api\V1\MetricsController;
 use App\Http\Controllers\Api\V1\MfsWebhookController;
+use App\Http\Controllers\Api\V1\NetworkOperationsController;
 use App\Http\Controllers\Api\V1\SubscriberController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Middleware\VerifyMfsReplayProtection;
@@ -89,6 +90,17 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/initiate', [CardPaymentController::class, 'initiate']);
         Route::post('/sslcommerz/ipn', [CardPaymentController::class, 'handleSslCommerzIpn']);
         Route::post('/stripe/webhook', [CardPaymentController::class, 'handleStripeWebhook']);
+    });
+
+    // P0-9 to P0-12: Network Operations, MikroTik, OLT, Polling & IPAM
+    Route::prefix('network')->group(function (): void {
+        Route::get('/mikrotik/sessions', [NetworkOperationsController::class, 'getMikrotikSessions']);
+        Route::post('/mikrotik/backup', [NetworkOperationsController::class, 'triggerMikrotikBackup']);
+        Route::get('/olts/{id}/autofind', [NetworkOperationsController::class, 'discoverOlts']);
+        Route::post('/olts/{id}/provision', [NetworkOperationsController::class, 'provisionOnu']);
+        Route::get('/devices/poll', [NetworkOperationsController::class, 'pollDevices']);
+        Route::get('/ipam/split', [NetworkOperationsController::class, 'splitSubnet']);
+        Route::get('/ipam/abuse-lookup', [NetworkOperationsController::class, 'lookupAbuse']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
