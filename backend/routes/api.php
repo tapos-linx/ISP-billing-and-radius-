@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AiCopilotController;
 use App\Http\Controllers\Api\V1\BillingLifecycleController;
 use App\Http\Controllers\Api\V1\CardPaymentController;
+use App\Http\Controllers\Api\V1\HelpdeskController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\IpdrController;
@@ -101,6 +102,16 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/devices/poll', [NetworkOperationsController::class, 'pollDevices']);
         Route::get('/ipam/split', [NetworkOperationsController::class, 'splitSubnet']);
         Route::get('/ipam/abuse-lookup', [NetworkOperationsController::class, 'lookupAbuse']);
+    });
+
+    // P0-13: Helpdesk Ticketing Endpoints
+    Route::prefix('helpdesk')->group(function (): void {
+        Route::get('/tickets', [HelpdeskController::class, 'index']);
+        Route::post('/tickets', [HelpdeskController::class, 'store']);
+        Route::get('/tickets/{id}', [HelpdeskController::class, 'show']);
+        Route::post('/tickets/{id}/comments', [HelpdeskController::class, 'addComment']);
+        Route::post('/tickets/{id}/resolve', [HelpdeskController::class, 'resolve']);
+        Route::get('/canned-replies', [HelpdeskController::class, 'cannedReplies']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
