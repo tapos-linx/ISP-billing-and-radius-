@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\BillingLifecycleController;
 use App\Http\Controllers\Api\V1\CardPaymentController;
 use App\Http\Controllers\Api\V1\CommercialAndResellerController;
 use App\Http\Controllers\Api\V1\FieldAndCpeController;
+use App\Http\Controllers\Api\V1\FinOpsAndBiController;
 use App\Http\Controllers\Api\V1\HelpdeskController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
@@ -181,6 +182,33 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('self-care')->group(function (): void {
         Route::post('/promotions/apply', [CommercialAndResellerController::class, 'applyPromotion']);
         Route::post('/signup', [CommercialAndResellerController::class, 'selfSignup']);
+    });
+
+    // Phase 2 (P1 Batch 4): FinOps, Cashdesk POS, Omnichannel Comms, Webhooks & Executive BI
+    Route::prefix('finops')->group(function (): void {
+        Route::post('/bank-statements', [FinOpsAndBiController::class, 'uploadBankStatement']);
+        Route::post('/bank-statement-lines/{id}/reconcile', [FinOpsAndBiController::class, 'reconcileBankLine']);
+        Route::post('/bank-statements/{id}/auto-reconcile', [FinOpsAndBiController::class, 'autoReconcileStatement']);
+    });
+
+    Route::prefix('cashdesk')->group(function (): void {
+        Route::post('/shifts/open', [FinOpsAndBiController::class, 'openCashShift']);
+        Route::post('/shifts/{id}/collect', [FinOpsAndBiController::class, 'collectCashPayment']);
+        Route::post('/shifts/{id}/close', [FinOpsAndBiController::class, 'closeCashShift']);
+    });
+
+    Route::prefix('notifications')->group(function (): void {
+        Route::post('/whatsapp', [FinOpsAndBiController::class, 'sendWhatsApp']);
+        Route::post('/telegram', [FinOpsAndBiController::class, 'sendTelegram']);
+    });
+
+    Route::prefix('webhooks')->group(function (): void {
+        Route::post('/subscriptions', [FinOpsAndBiController::class, 'createWebhookSubscription']);
+        Route::post('/dispatch', [FinOpsAndBiController::class, 'dispatchWebhookEvent']);
+    });
+
+    Route::prefix('analytics')->group(function (): void {
+        Route::get('/bi-overview', [FinOpsAndBiController::class, 'getExecutiveBiOverview']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
