@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AiCopilotController;
 use App\Http\Controllers\Api\V1\BillingLifecycleController;
 use App\Http\Controllers\Api\V1\CardPaymentController;
+use App\Http\Controllers\Api\V1\CommercialAndResellerController;
 use App\Http\Controllers\Api\V1\FieldAndCpeController;
 use App\Http\Controllers\Api\V1\HelpdeskController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
@@ -68,6 +69,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/vouchers/{code}/receipt', [HotspotVoucherController::class, 'renderReceipt']);
         Route::post('/vouchers/auth-verify', [HotspotVoucherController::class, 'authVerify']);
         Route::post('/vouchers/{code}/consume', [HotspotVoucherController::class, 'consumeQuota']);
+        Route::get('/portal', [CommercialAndResellerController::class, 'renderCaptivePortal']);
+        Route::get('/wispr', [CommercialAndResellerController::class, 'getWisprXml']);
+        Route::post('/login', [CommercialAndResellerController::class, 'authenticateVoucher']);
     });
 
     // Release 2.0 (Epic 3): ClickHouse BTRC 2-Year IPDR Telemetry Endpoints
@@ -151,6 +155,32 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/inventory/items/{id}/assign', [FieldAndCpeController::class, 'assignItemToSubscriber']);
         Route::post('/inventory/items/{id}/return', [FieldAndCpeController::class, 'returnItemToWarehouse']);
         Route::get('/inventory/warehouses/{id}/stock', [FieldAndCpeController::class, 'getWarehouseStock']);
+    });
+
+    // Phase 2 (P1 Batch 3): Commercial CRM, eKYC, Reseller & Self-Signup Endpoints
+    Route::prefix('crm')->group(function (): void {
+        Route::post('/leads', [CommercialAndResellerController::class, 'createLead']);
+        Route::post('/leads/{id}/feasibility', [CommercialAndResellerController::class, 'checkFeasibility']);
+        Route::post('/leads/{id}/quote', [CommercialAndResellerController::class, 'generateQuote']);
+        Route::post('/leads/{id}/convert', [CommercialAndResellerController::class, 'convertLead']);
+    });
+
+    Route::prefix('compliance/ecaf')->group(function (): void {
+        Route::post('/', [CommercialAndResellerController::class, 'submitEcaf']);
+        Route::post('/{id}/verify', [CommercialAndResellerController::class, 'verifyEcaf']);
+        Route::get('/{id}/export', [CommercialAndResellerController::class, 'exportBtrcAudit']);
+    });
+
+    Route::prefix('reseller')->group(function (): void {
+        Route::get('/wallets/{resellerId}', [CommercialAndResellerController::class, 'getResellerWallet']);
+        Route::post('/wallets/{walletId}/topup', [CommercialAndResellerController::class, 'topupResellerWallet']);
+        Route::post('/wallets/{walletId}/activate', [CommercialAndResellerController::class, 'debitResellerActivation']);
+        Route::get('/wallets/{walletId}/transactions', [CommercialAndResellerController::class, 'getResellerTransactions']);
+    });
+
+    Route::prefix('self-care')->group(function (): void {
+        Route::post('/promotions/apply', [CommercialAndResellerController::class, 'applyPromotion']);
+        Route::post('/signup', [CommercialAndResellerController::class, 'selfSignup']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
