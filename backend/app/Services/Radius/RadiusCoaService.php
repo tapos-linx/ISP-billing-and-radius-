@@ -32,6 +32,60 @@ class RadiusCoaService
     }
 
     /**
+     * Terminate an active subscriber session by username using default NAS configuration.
+     */
+    public function disconnect(string $username, ?string $subscriberId = null): bool
+    {
+        [$nasIp, $secret, $coaPort] = $this->resolveDefaultNas();
+
+        return $this->disconnectSession(
+            username: $username,
+            nasIp: $nasIp,
+            secret: $secret,
+            coaPort: $coaPort,
+            subscriberId: $subscriberId
+        );
+    }
+
+    /**
+     * Dynamically change active subscriber rate limit using default NAS configuration.
+     */
+    public function changeBandwidthForUser(string $username, string $rateLimit, ?string $subscriberId = null): bool
+    {
+        [$nasIp, $secret, $coaPort] = $this->resolveDefaultNas();
+
+        return $this->changeBandwidth(
+            username: $username,
+            nasIp: $nasIp,
+            secret: $secret,
+            rateLimit: $rateLimit,
+            coaPort: $coaPort,
+            subscriberId: $subscriberId
+        );
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: int}
+     */
+    private function resolveDefaultNas(): array
+    {
+        $nas = DB::table('nas')->first();
+        $nasIp = $nas ? (string) $nas->nasname : '127.0.0.1';
+
+        $secret = '';
+        if (file_exists('/run/secrets/radius_secret')) {
+            $secret = trim((string) file_get_contents('/run/secrets/radius_secret'));
+        }
+        if ($secret === '') {
+            $secret = $nas ? (string) $nas->secret : (string) (config('radius.secret') ?: 'secure_radius_secret_key_2026');
+        }
+
+        $coaPort = $nas && isset($nas->coa_port) ? (int) $nas->coa_port : self::DEFAULT_COA_PORT;
+
+        return [$nasIp, $secret, $coaPort];
+    }
+
+    /**
      * Terminate an active subscriber PPPoE session (PoD).
      */
     public function disconnectSession(

@@ -25,7 +25,7 @@ class VerifyMfsReplayProtection
 
     public function handle(Request $request, Closure $next): Response
     {
-        $timestamp = (int) ($request->header('X-Webhook-Timestamp') ?: $request->header('X-Timestamp', 0));
+        $timestamp = (int) ($request->header('X-Webhook-Timestamp') ?: $request->header('X-Timestamp', '0'));
         $nonce = trim((string) ($request->header('X-Webhook-Nonce') ?: $request->header('X-Nonce', '')));
         $idempotencyKey = trim((string) ($request->header('X-Idempotency-Key') ?: $request->header('Idempotency-Key', '')));
 

@@ -198,7 +198,7 @@ class HotspotVoucherService
     public function renderEscPosReceipt(HotspotVoucher $voucher): string
     {
         $profile = $voucher->profile ?? HotspotProfile::withoutGlobalScopes()->find($voucher->profile_id);
-        $profileName = $profile ? $profile->name : 'Wi-Fi Speed Pass';
+        $profileName = ($profile instanceof HotspotProfile) ? (string) $profile->name : 'Wi-Fi Speed Pass';
         $downM = intval($voucher->rate_limit_down_kbps / 1024);
         $upM = intval($voucher->rate_limit_up_kbps / 1024);
         $dataMb = $voucher->data_limit_bytes > 0 ? intval($voucher->data_limit_bytes / (1024 * 1024)).' MB' : 'Unlimited';

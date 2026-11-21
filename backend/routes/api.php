@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AiCopilotController;
+use App\Http\Controllers\Api\V1\BillingLifecycleController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\IpdrController;
@@ -69,6 +70,17 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/status', [IpdrController::class, 'status']);
         Route::post('/ingest', [IpdrController::class, 'ingest']);
         Route::get('/search', [IpdrController::class, 'search']);
+    });
+
+    // P0: Billing Lifecycle (Pro-Rata, Credit Notes, Refunds & Dunning)
+    Route::prefix('billing')->group(function (): void {
+        Route::post('/plan-change/calculate', [BillingLifecycleController::class, 'calculatePlanChange']);
+        Route::post('/plan-change/apply', [BillingLifecycleController::class, 'applyPlanChange']);
+        Route::post('/invoices/{id}/credit-note', [BillingLifecycleController::class, 'issueCreditNote']);
+        Route::post('/invoices/{id}/void', [BillingLifecycleController::class, 'voidInvoice']);
+        Route::post('/payments/{id}/refund', [BillingLifecycleController::class, 'processRefund']);
+        Route::post('/dunning/process', [BillingLifecycleController::class, 'processDunning']);
+        Route::post('/subscribers/{id}/vacation-mode', [BillingLifecycleController::class, 'setVacationMode']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints

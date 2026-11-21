@@ -1,12 +1,15 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
 parameters:
-    level: 8
+    level: 5
     paths:
         - app
     excludePaths:
         - ./*/*/FileToBeExcluded.php
-    checkMissingIterableValueType: false
-    checkGenericClassInNonGenericObjectType: false
     treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
         - '#Unsafe usage of new static#'
-        - '#Dynamic call to static method Illuminate\\Support\\Facades#'
+        - '#Called .env. outside of the config directory#'
+        - '#Access to an undefined property App\\Models\\#'

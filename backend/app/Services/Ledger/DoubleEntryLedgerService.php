@@ -86,6 +86,68 @@ class DoubleEntryLedgerService
     }
 
     /**
+     * Record a balanced two-legged journal entry.
+     */
+    public function recordJournalEntry(
+        int $tenantId,
+        string $referenceType,
+        string $referenceId,
+        string $debitAccountCode,
+        string $creditAccountCode,
+        float $amountBdt,
+        string $description,
+        ?string $subscriberId = null,
+        ?string $invoiceId = null,
+        ?string $paymentId = null
+    ): string {
+        return DB::transaction(function () use (
+            $tenantId, $referenceType, $referenceId, $debitAccountCode, $creditAccountCode,
+            $amountBdt, $description, $subscriberId, $invoiceId, $paymentId
+        ) {
+            if ($amountBdt <= 0) {
+                throw new InvalidArgumentException('Journal entry amount must be greater than zero.');
+            }
+
+            $debitAccount = LedgerAccount::where('code', $debitAccountCode)->firstOrFail();
+            $creditAccount = LedgerAccount::where('code', $creditAccountCode)->firstOrFail();
+
+            $journalId = (string) Str::uuid();
+
+            // 1. DR Leg
+            LedgerEntry::create([
+                'journal_entry_id' => $journalId,
+                'account_id' => $debitAccount->id,
+                'invoice_id' => $invoiceId,
+                'payment_id' => $paymentId,
+                'subscriber_id' => $subscriberId,
+                'tenant_id' => $tenantId,
+                'debit_bdt' => $amountBdt,
+                'credit_bdt' => 0.00,
+                'description' => "{$description} [{$referenceType}:{$referenceId}]",
+                'posted_at' => now(),
+            ]);
+
+            // 2. CR Leg
+            LedgerEntry::create([
+                'journal_entry_id' => $journalId,
+                'account_id' => $creditAccount->id,
+                'invoice_id' => $invoiceId,
+                'payment_id' => $paymentId,
+                'subscriber_id' => $subscriberId,
+                'tenant_id' => $tenantId,
+                'debit_bdt' => 0.00,
+                'credit_bdt' => $amountBdt,
+                'description' => "{$description} [{$referenceType}:{$referenceId}]",
+                'posted_at' => now(),
+            ]);
+
+            $this->validateJournalBalance($journalId);
+
+            return $journalId;
+        });
+    }
+
+    /**
      * Record payment settlement in the general ledger:
      * DR: Cash / MFS Clearing (Amount BDT)
      * CR: Accounts Receivable (Amount BDT)
