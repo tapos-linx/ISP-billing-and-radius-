@@ -41,3 +41,9 @@
 - [x] **Phase 11 / Stage 11: Cloud Staging & Multi-Cloud Readiness** — GCP Cloud Run + Secret Manager, AWS Free Tier EC2 + FreeRADIUS 3.2, zero-cost pre-flight billing guard, AI diagnostic endpoints (`scripts/Run-Stage11CloudStaging.ps1`, `scripts/run_stage11_cloud_staging.sh`, `stage_11_cloud_staging_and_readiness_report.md`)
 - [x] **Phase 12 / Stage 12: Zero-Downtime Production Cutover & Rollback Verification** — 8-gate cutover & pilot engine (`scripts/Run-Stage12Cutover.ps1`, `scripts/run_stage12_cutover.sh`, `scripts/test_stage12_cutover_and_pilot.py`), RouterOS v7 pilot directives, 5-minute rollback assurance (`stage_12_ha_observability_and_cutover_report.md`)
 - [x] **Phase 13 / Stage 13: Evolution & Day-2 Carrier Operations** — Post-cutover feedback triage, tech debt register (`docs/11-evolution/TECHNICAL_DEBT.md`), blameless postmortem engine (`docs/11-evolution/INCIDENT_POSTMORTEM_RUNBOOK.md`), and Release 2.0 roadmap (`scripts/Run-Stage13Evolution.ps1`, `scripts/run_stage13_evolution.sh`, `scripts/test_stage13_evolution_and_day2_ops.py`, `stage_13_evolution_and_day2_ops_report.md`)
+
+---
+
+## Release 2.0 Carrier Expansion Trackers
+
+- [x] **Release 2.0 / Epic 1: Wi-Fi Hotspot Voucher Management System** — Citus 128-shard tables (`hotspot_vouchers`, `hotspot_profiles`), batch voucher generator with 80mm ESC/POS thermal layout, Redis fast-path verification (<0.4ms), and WISPr rate-limiting VSAs (`scripts/Run-HotspotVoucherVerification.ps1`, `scripts/run_hotspot_voucher_verification.sh`, `scripts/test_release2_hotspot_voucher.py`, `release2_epic1_hotspot_voucher_report.md`)

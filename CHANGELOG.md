@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.1.0-dev] - 2026-11-21 (Stage 13: Evolution & Day-2 Carrier Operations)
+## [1.1.0-dev] - 2026-11-21 (Stage 13: Evolution & Release 2.0 Inception)
 
 ### Added
+- **Release 2.0 Epic 1 (Wi-Fi Hotspot Voucher Engine):** Implemented Citus 128-shard tables (`hotspot_vouchers`, `hotspot_profiles`), batch voucher generator with 80mm ESC/POS layout & bKash QR payloads, Redis fast-path verification (<0.4ms), captive portal authorization with WISPr VSAs (`WISPr-Bandwidth-Max-Down` / `Up`), interim accounting quota consumption, and 6 PHPUnit feature tests (42/42 total tests pass).
 - **Release 2.0 Roadmap:** Created `docs/11-evolution/PRODUCT_ROADMAP.md` covering Wi-Fi Hotspot vouchers, VoIP/SIP CDR call rating, ClickHouse 2-year BTRC IPDR storage, and GenieACS TR-069 optical automation.
 - **Technical Debt Register:** Established `docs/11-evolution/TECHNICAL_DEBT.md` with cataloged debt items (`TD-001` through `TD-006`), severity matrix, complexity estimates, and architectural remediation targets.
 - **Incident Postmortem Runbook:** Added `docs/11-evolution/INCIDENT_POSTMORTEM_RUNBOOK.md` defining blameless culture, 5-Whys methodology, severity tiers (P1–P4), and MTTD/MTTR targets.

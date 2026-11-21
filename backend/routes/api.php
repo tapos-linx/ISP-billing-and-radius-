@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AiCopilotController;
+use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\IpPoolController;
 use App\Http\Controllers\Api\V1\MetricsController;
@@ -50,6 +51,17 @@ Route::prefix('v1')->group(function (): void {
 
     // Gemini API NOC Copilot
     Route::post('/ai/diagnose', [AiCopilotController::class, 'diagnose']);
+
+    // Release 2.0 (Epic 1): Wi-Fi Hotspot Voucher Management Endpoints
+    Route::prefix('hotspot')->group(function (): void {
+        Route::get('/profiles', [HotspotVoucherController::class, 'indexProfiles']);
+        Route::post('/profiles', [HotspotVoucherController::class, 'createProfile']);
+        Route::post('/vouchers/generate', [HotspotVoucherController::class, 'generateBatch']);
+        Route::get('/vouchers/{code}', [HotspotVoucherController::class, 'getVoucher']);
+        Route::get('/vouchers/{code}/receipt', [HotspotVoucherController::class, 'renderReceipt']);
+        Route::post('/vouchers/auth-verify', [HotspotVoucherController::class, 'authVerify']);
+        Route::post('/vouchers/{code}/consume', [HotspotVoucherController::class, 'consumeQuota']);
+    });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
     Route::middleware(['auth.token'])->group(function (): void {
