@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AiCopilotController;
 use App\Http\Controllers\Api\V1\BillingLifecycleController;
 use App\Http\Controllers\Api\V1\CardPaymentController;
+use App\Http\Controllers\Api\V1\FieldAndCpeController;
 use App\Http\Controllers\Api\V1\HelpdeskController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
@@ -125,6 +126,31 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/netflow/breakdown', [TrafficAndAaaController::class, 'getTrafficBreakdown']);
         Route::post('/cgnat/allocate', [TrafficAndAaaController::class, 'allocateCgnat']);
         Route::get('/cgnat/correlate', [TrafficAndAaaController::class, 'correlateCgnat']);
+    });
+
+    // Phase 2 (P1 Batch 2): CPE Management & TR-069 Endpoints
+    Route::prefix('cpe')->group(function (): void {
+        Route::post('/reboot', [FieldAndCpeController::class, 'rebootCpe']);
+        Route::post('/wifi', [FieldAndCpeController::class, 'configureWifi']);
+        Route::post('/pppoe', [FieldAndCpeController::class, 'provisionWanPppoe']);
+        Route::post('/alarms/event', [FieldAndCpeController::class, 'handleAlarmEvent']);
+        Route::get('/alarms/active', [FieldAndCpeController::class, 'getActiveAlarms']);
+        Route::post('/alarms/suppress', [FieldAndCpeController::class, 'suppressAlarms']);
+        Route::post('/alarms/{id}/resolve', [FieldAndCpeController::class, 'resolveParentAlarm']);
+    });
+
+    // Phase 2 (P1 Batch 2): Field Workforce & Inventory Endpoints
+    Route::prefix('field-ops')->group(function (): void {
+        Route::post('/technicians', [FieldAndCpeController::class, 'registerTechnician']);
+        Route::post('/technicians/{id}/location', [FieldAndCpeController::class, 'updateTechnicianLocation']);
+        Route::post('/work-orders', [FieldAndCpeController::class, 'createWorkOrder']);
+        Route::post('/work-orders/{id}/assign', [FieldAndCpeController::class, 'assignWorkOrder']);
+        Route::post('/work-orders/{id}/complete', [FieldAndCpeController::class, 'completeWorkOrder']);
+        Route::post('/inventory/warehouses', [FieldAndCpeController::class, 'createWarehouse']);
+        Route::post('/inventory/items', [FieldAndCpeController::class, 'receiveItem']);
+        Route::post('/inventory/items/{id}/assign', [FieldAndCpeController::class, 'assignItemToSubscriber']);
+        Route::post('/inventory/items/{id}/return', [FieldAndCpeController::class, 'returnItemToWarehouse']);
+        Route::get('/inventory/warehouses/{id}/stock', [FieldAndCpeController::class, 'getWarehouseStock']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
