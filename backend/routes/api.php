@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\MfsWebhookController;
 use App\Http\Controllers\Api\V1\NetworkOperationsController;
 use App\Http\Controllers\Api\V1\SubscriberController;
 use App\Http\Controllers\Api\V1\TenantController;
+use App\Http\Controllers\Api\V1\TrafficAndAaaController;
 use App\Http\Middleware\VerifyMfsReplayProtection;
 use App\Jobs\ExpireOverdueSubscribersJob;
 use Illuminate\Support\Facades\DB;
@@ -112,6 +113,18 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/tickets/{id}/comments', [HelpdeskController::class, 'addComment']);
         Route::post('/tickets/{id}/resolve', [HelpdeskController::class, 'resolve']);
         Route::get('/canned-replies', [HelpdeskController::class, 'cannedReplies']);
+    });
+
+    // Phase 2 (P1 Batch 1): AAA, Traffic & Bandwidth Engineering Endpoints
+    Route::prefix('traffic')->group(function (): void {
+        Route::post('/fup/check', [TrafficAndAaaController::class, 'checkFup']);
+        Route::post('/fup/topup', [TrafficAndAaaController::class, 'purchaseTopup']);
+        Route::post('/time-of-day/evaluate', [TrafficAndAaaController::class, 'evaluateTimeOfDayBoost']);
+        Route::post('/vsa/format', [TrafficAndAaaController::class, 'formatVendorVsa']);
+        Route::post('/netflow/ingest', [TrafficAndAaaController::class, 'ingestNetflow']);
+        Route::get('/netflow/breakdown', [TrafficAndAaaController::class, 'getTrafficBreakdown']);
+        Route::post('/cgnat/allocate', [TrafficAndAaaController::class, 'allocateCgnat']);
+        Route::get('/cgnat/correlate', [TrafficAndAaaController::class, 'correlateCgnat']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
