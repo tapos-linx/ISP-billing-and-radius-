@@ -37,6 +37,10 @@ class Subscriber extends Model
         'bandwidth_profile',
         'status',
         'expires_at',
+        'grace_until',
+        'vacation_until',
+        'auto_pay_enabled',
+        'pro_rata_balance',
         'created_at',
     ];
 
@@ -46,7 +50,11 @@ class Subscriber extends Model
             'tenant_id' => 'integer',
             'tariff_id' => 'integer',
             'vlan_id' => 'integer',
+            'auto_pay_enabled' => 'boolean',
+            'pro_rata_balance' => 'float',
             'expires_at' => 'datetime',
+            'grace_until' => 'datetime',
+            'vacation_until' => 'datetime',
             'created_at' => 'datetime',
         ];
     }

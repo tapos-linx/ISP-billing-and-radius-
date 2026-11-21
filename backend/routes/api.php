@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\V1\AiCopilotController;
 use App\Http\Controllers\Api\V1\BillingLifecycleController;
+use App\Http\Controllers\Api\V1\CardPaymentController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\IpdrController;
@@ -81,6 +82,13 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/payments/{id}/refund', [BillingLifecycleController::class, 'processRefund']);
         Route::post('/dunning/process', [BillingLifecycleController::class, 'processDunning']);
         Route::post('/subscribers/{id}/vacation-mode', [BillingLifecycleController::class, 'setVacationMode']);
+    });
+
+    // P0-7: Universal Card Payment Gateway Endpoints
+    Route::prefix('payments/card')->group(function (): void {
+        Route::post('/initiate', [CardPaymentController::class, 'initiate']);
+        Route::post('/sslcommerz/ipn', [CardPaymentController::class, 'handleSslCommerzIpn']);
+        Route::post('/stripe/webhook', [CardPaymentController::class, 'handleStripeWebhook']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
