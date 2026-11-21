@@ -1,0 +1,32 @@
+name: isp-carrier-lab
+
+mgmt:
+  network: clab-mgmt
+  ipv4-subnet: 172.20.20.0/24
+
+topology:
+  nodes:
+    mikrotik-chr:
+      kind: vr-ros
+      image: networkop/routeros:7.14
+      mgmt-ipv4: 172.20.20.10
+      startup-config: mikrotik-startup.rsc
+
+    freeradius:
+      kind: linux
+      image: freeradius/freeradius-server:3.2.3-alpine
+      mgmt-ipv4: 172.20.20.20
+      binds:
+        - ../../infra/freeradius/clients.conf:/etc/raddb/clients.conf:ro
+        - ../../infra/freeradius/radiusd.conf:/etc/raddb/radiusd.conf:ro
+
+    subscriber-client:
+      kind: linux
+      image: alpine:latest
+      mgmt-ipv4: 172.20.20.30
+      exec:
+        - apk add --no-cache rp-pppoe iproute2
+
+  links:
+    - endpoints: ["subscriber-client:eth1", "mikrotik-chr:ether1"]
+    - endpoints: ["mikrotik-chr:ether2", "freeradius:eth1"]
