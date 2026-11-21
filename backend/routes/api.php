@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CommercialAndResellerController;
 use App\Http\Controllers\Api\V1\EnterpriseAndVoipController;
 use App\Http\Controllers\Api\V1\FieldAndCpeController;
 use App\Http\Controllers\Api\V1\FinOpsAndBiController;
+use App\Http\Controllers\Api\V1\HaAndBankingController;
 use App\Http\Controllers\Api\V1\HelpdeskController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
@@ -257,6 +258,30 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('analytics/capacity')->group(function (): void {
         Route::post('/forecast', [NetworkAndFieldIntelligenceController::class, 'forecastResource']);
         Route::post('/nearest-technician', [NetworkAndFieldIntelligenceController::class, 'findNearestTechnician']);
+    });
+
+    // P2 Batch 3: High Availability, Banking Clearing, Anycast Topology & Disaster Recovery
+    Route::prefix('clearing')->group(function (): void {
+        Route::post('/batches', [HaAndBankingController::class, 'generateClearingBatch']);
+        Route::get('/batches/{id}/export', [HaAndBankingController::class, 'exportClearingBatch']);
+        Route::post('/batches/{id}/returns', [HaAndBankingController::class, 'processSettlementReturn']);
+    });
+
+    Route::prefix('anycast')->group(function (): void {
+        Route::post('/nodes', [HaAndBankingController::class, 'registerAnycastNode']);
+        Route::post('/nodes/{code}/health', [HaAndBankingController::class, 'recordAnycastHealth']);
+        Route::post('/nodes/{code}/drain', [HaAndBankingController::class, 'drainAnycastNode']);
+        Route::post('/nodes/{code}/announce', [HaAndBankingController::class, 'announceAnycastNode']);
+        Route::get('/status', [HaAndBankingController::class, 'getAnycastTopology']);
+    });
+
+    Route::prefix('dr')->group(function (): void {
+        Route::post('/drills', [HaAndBankingController::class, 'executeDrill']);
+        Route::get('/drills', [HaAndBankingController::class, 'listDrills']);
+    });
+
+    Route::prefix('audit')->group(function (): void {
+        Route::get('/verify-chain', [HaAndBankingController::class, 'verifyAuditChain']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints
