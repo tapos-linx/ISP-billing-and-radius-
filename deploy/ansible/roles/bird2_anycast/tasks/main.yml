@@ -1,0 +1,29 @@
+---
+# BIRD2 BGP Anycast Routing Daemon Configuration
+- name: Install BIRD2 and BFD Packages
+  ansible.builtin.package:
+    name:
+      - bird2
+    state: present
+
+- name: Configure Dummy Interface for Anycast VIP
+  ansible.builtin.template:
+    src: anycast_dummy.j2
+    dest: /etc/network/interfaces.d/anycast_dummy
+    mode: '0644'
+  notify: Restart Networking
+
+- name: Deploy BIRD2 Configuration
+  ansible.builtin.template:
+    src: bird.conf.j2
+    dest: /etc/bird/bird.conf
+    mode: '0640'
+    owner: bird
+    group: bird
+  notify: Reload BIRD2
+
+- name: Ensure BIRD2 Service is Enabled and Running
+  ansible.builtin.service:
+    name: bird
+    state: started
+    enabled: true

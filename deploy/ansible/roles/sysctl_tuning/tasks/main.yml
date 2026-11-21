@@ -1,0 +1,41 @@
+---
+# High-Throughput Carrier Kernel & UDP Buffer Tuning
+- name: Apply Carrier Sysctl Parameters
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    # High-Performance UDP Buffers (Prevent FreeRADIUS packet drops during storm)
+    - { name: 'net.core.rmem_max', value: '67108864' }
+    - { name: 'net.core.wmem_max', value: '67108864' }
+    - { name: 'net.core.rmem_default', value: '33554432' }
+    - { name: 'net.core.wmem_default', value: '33554432' }
+    - { name: 'net.ipv4.udp_mem', value: '262144 524288 1048576' }
+    - { name: 'net.ipv4.udp_rmem_min', value: '16384' }
+    - { name: 'net.ipv4.udp_wmem_min', value: '16384' }
+
+    # Socket Queue & Connection Handling
+    - { name: 'net.core.somaxconn', value: '65535' }
+    - { name: 'net.core.netdev_max_backlog', value: '250000' }
+    - { name: 'net.ipv4.tcp_max_syn_backlog', value: '65535' }
+
+    # BGP Anycast & IP Forwarding
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: 'net.ipv4.ip_nonlocal_bind', value: '1' }
+
+    # File Descriptors & Inotify
+    - { name: 'fs.file-max', value: '2097152' }
+
+- name: Set Security Limits for Carrier Daemons
+  ansible.builtin.pam_limits:
+    domain: '*'
+    limit_type: "{{ item.type }}"
+    limit_item: "{{ item.item }}"
+    value: "{{ item.value }}"
+  loop:
+    - { type: 'soft', item: 'nofile', value: '1048576' }
+    - { type: 'hard', item: 'nofile', value: '1048576' }
+    - { type: 'soft', item: 'nproc', value: '65535' }
+    - { type: 'hard', item: 'nproc', value: '65535' }

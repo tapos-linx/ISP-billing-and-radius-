@@ -1,0 +1,19 @@
+---
+- name: Carrier Infrastructure Base Tuning & Kernel Optimization
+  hosts: carrier_cluster
+  become: true
+  roles:
+    - role: sysctl_tuning
+
+- name: Deploy High-Throughput ClickHouse 2-Year IPDR Storage
+  hosts: clickhouse_ipdr
+  become: true
+  roles:
+    - role: clickhouse_ipdr
+
+- name: Deploy Multi-Region Edge FreeRADIUS & Fast-Path AAA
+  hosts: edge_anycast_radius
+  become: true
+  roles:
+    - role: freeradius_carrier
+    - role: bird2_anycast

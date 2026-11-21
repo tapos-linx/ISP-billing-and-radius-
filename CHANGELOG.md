@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-11-22 (Release 2.1: Multi-Region Edge Automation & Hotspot POS Portal)
+
+### Added
+- **Multi-Region IaC & Edge Edge Automation (Option 1):**
+  - Enhanced Terraform manifests (`deploy/terraform/multi_region_pop.tf`) defining 3 Carrier POPs: Dhaka Core DC1, Chattogram Standby DC2, and Sylhet Regional Edge POP DC3 with BGP Anycast VIP `103.145.10.1/32`, BFD fast-failover security groups, and inter-region VPC peering.
+  - Complete Ansible automation suite (`deploy/ansible/`): inventory for 3 regions, `sysctl_tuning` role for high-throughput carrier UDP buffer tuning (`rmem_max=67108864`, `somaxconn=65535`), `bird2_anycast` role for automated BGP Anycast VIP daemon configuration, `freeradius_carrier` role, and `clickhouse_ipdr` role.
+- **Containerlab Virtual MikroTik RouterOS Drill (Option 2):**
+  - Built `RunContainerlabDrillCommand` (`php artisan carrier:clab-drill`) validating the full 5-stage virtual CHR hardware-in-the-loop lifecycle: topology and startup script verification, PPPoE discovery handshake, <10ms RADIUS authentication, <500ms RFC 3576 CoA rate change enforcement, and ClickHouse IPDR packet streaming.
+  - Added automated PHPUnit test `ContainerlabDrillTest.php`.
+- **Hotspot Captive Portal & Reseller POS Printing (Option 3):**
+  - Built `HotspotWebController.php` with `/hotspot/login`, `/hotspot/print/{batchId}`, and `/hotspot/print-voucher/{code}` web routes.
+  - Built mobile-responsive Vue 3 captive portal (`CaptivePortal.vue`) with WISPr 1.0 auto-login detection, instant bKash/Nagad purchase with QR code auto-fill, and live session quota metering.
+  - Built retail POS 80mm ESC/POS thermal voucher batch printing view (`VoucherPrint.vue`) with high-contrast PIN layout, QR codes for instant mobile login, and Mushak-6.3 VAT details.
+  - Added automated PHPUnit test suite `HotspotWebTest.php`.
+  - Recompiled production Vite assets (`public/build/assets/app-Bdvm33TP.js` and `app-CzUPN9Ye.css`).
+- **Carrier Operator Handover & Regulatory Audit Documentation (Option 4):**
+  - Created `docs/CARRIER_OPERATOR_HANDOVER_RUNBOOK.md` covering 24/7 NOC tier escalation matrices (L1–L4), automated daily drills, emergency Anycast drain procedures, and RTO < 60s / RPO < 15s disaster recovery runbooks.
+  - Created `docs/NBR_BTRC_REGULATORY_COMPLIANCE_PACK.md` certifying NBR Mushak-6.3 5% VAT immutable double-entry ledger calculation, BTRC 730-day IPDR columnar ClickHouse schema with automated TTL expiry, and Bangladesh Bank BEFTN/NPSB ISO 20022 direct debit specifications.
+
+---
+
 ## [2.0.0] - 2026-11-22 (Release 2.0: Full Carrier Expansion & Enterprise Scaling)
 
 ### Added

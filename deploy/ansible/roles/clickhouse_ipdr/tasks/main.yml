@@ -1,0 +1,59 @@
+---
+# ClickHouse 24.3 High-Velocity 2-Year IPDR Storage Setup
+- name: Add ClickHouse Official APT Key
+  ansible.builtin.apt_key:
+    keyserver: hkp://keyserver.ubuntu.com:80
+    id: 8919F6BD2B48D754
+    state: present
+
+- name: Add ClickHouse Official Repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://packages.clickhouse.com/deb stable main"
+    state: present
+
+- name: Install ClickHouse Server and Client
+  ansible.builtin.package:
+    name:
+      - clickhouse-server
+      - clickhouse-client
+    state: present
+
+- name: Configure ClickHouse Listen Ports and Limits
+  ansible.builtin.template:
+    src: config.xml.j2
+    dest: /etc/clickhouse-server/config.d/carrier_overrides.xml
+    owner: clickhouse
+    group: clickhouse
+    mode: '0640'
+  notify: Restart ClickHouse
+
+- name: Ensure ClickHouse Service is Enabled and Running
+  ansible.builtin.service:
+    name: clickhouse-server
+    state: started
+    enabled: true
+
+- name: Deploy 730-Day Automated BTRC IPDR Schema
+  ansible.builtin.command:
+    cmd: >
+      clickhouse-client --query "
+        CREATE DATABASE IF NOT EXISTS isp_compliance;
+        CREATE TABLE IF NOT EXISTS isp_compliance.btrc_ipdr_records (
+          event_time DateTime CODEC(DoubleDelta, LZ4),
+          username LowCardinality(String),
+          framed_ip IPv4 CODEC(LZ4),
+          nas_ip IPv4 CODEC(LZ4),
+          public_nat_ip IPv4 CODEC(LZ4),
+          public_port_start UInt16,
+          public_port_end UInt16,
+          input_octets UInt64 CODEC(T64, LZ4),
+          output_octets UInt64 CODEC(T64, LZ4),
+          acct_session_id String CODEC(ZSTD),
+          calling_station_id String CODEC(ZSTD)
+        ) ENGINE = MergeTree()
+        PARTITION BY toYYYYMM(event_time)
+        ORDER BY (framed_ip, event_time, username)
+        TTL event_time + INTERVAL 730 DAY;
+      "
+  register: clickhouse_schema_result
+  changed_when: "'Created' in clickhouse_schema_result.stdout or clickhouse_schema_result.rc == 0"
