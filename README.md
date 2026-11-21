@@ -314,6 +314,29 @@ bash scripts/run_isp_local_qa.sh
 4. **FreeRADIUS Access-Request (radtest)**: Validates sub-10ms authentication and `Mikrotik-Rate-Limit` VSA return.
 5. **MikroTik RFC 5176 CoA / Disconnect-Request**: Sends UDP 3799 PoD disconnect packet and verifies `Disconnect-ACK`.
 
+### Automated On-Prem HA Architecture & Storage Runner (Stage 10)
+
+Run the full 7-gate high-availability and enterprise backup/restore verification suite:
+
+```powershell
+# PowerShell (Windows)
+powershell -ExecutionPolicy Bypass -File scripts\Run-Stage10HaStorage.ps1
+```
+
+```bash
+# Bash (Linux / Git Bash / macOS)
+bash scripts/run_stage10_ha_and_storage.sh
+```
+
+**Verification Gates:**
+1. **Citus Distributed Master & Workers Topology**: Validates primary mode (`pg_is_in_recovery() = false`), `citus_worker_1/2` active shard nodes in `pg_dist_node`, `wal_level = logical`, and `archive_mode = on`.
+2. **pgBackRest Enterprise Backup & Delta Restore Drill**: Validates stanza `isp_bss_oss` health, live WAL segment archiving, differential backup generation, and isolated delta restore into `/tmp/pg_restore_drill`.
+3. **AES-256 Encrypted Cold Storage & SHA-256 Integrity Verification**: Generates encrypted database archive (`.enc`), computes SHA-256 digest, and executes full database decryption and restoration drill.
+4. **Redis Core Fast-Path HA & Noeviction Persistence**: Validates master role, Sentinel configuration, and `noeviction` maxmemory policy (protecting MFS SETNX idempotent locks).
+5. **FreeRADIUS Low-Latency AAA (<10ms) & Socket Health**: Validates operational status on UDP 1812/1813/3799, executing `radtest` authentication and verifying `Mikrotik-Rate-Limit` and `Framed-Pool` VSAs.
+6. **Keepalived VRRP Configuration & Failover Tracking Validation**: Validates VIP `10.10.0.10/24`, priority `101`, and `chk_freeradius` healthcheck track script with priority downgrade failover math.
+7. **Automated Radacct Partition Maintenance & HA PHPUnit Pass**: Validates monthly partition creation (`radacct:maintain-partitions`) and 100% PHPUnit feature test suite pass.
+
 ---
 
 ## Repository Structure

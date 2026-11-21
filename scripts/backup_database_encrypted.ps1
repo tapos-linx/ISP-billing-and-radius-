@@ -11,6 +11,15 @@ param(
     [string]$S3Endpoint = "http://127.0.0.1:9000"
 )
 
+function ConvertTo-WslPath([string]$winPath) {
+    if ($winPath -match '^([a-zA-Z]):\\(.*)$') {
+        $drive = $matches[1].ToLower()
+        $rest = $matches[2] -replace '\\', '/'
+        return "/mnt/$drive/$rest"
+    }
+    return $winPath -replace '\\', '/'
+}
+
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupDir = Join-Path $RepoRoot "backups"
 $tmpStage = Join-Path $backupDir "tmp_$timestamp"
@@ -40,7 +49,11 @@ $tarFile = Join-Path $tmpStage "backup_${timestamp}.tar.gz"
 $encFile = Join-Path $backupDir "backup_${timestamp}.tar.gz.enc"
 $checksumFile = "$encFile.sha256"
 
-wsl bash -c "tar -czf /mnt/c/Users/DESKTOP-SHIPU-W2/projects/ISP-billing-and-radius/backups/tmp_$timestamp/backup_$timestamp.tar.gz -C /mnt/c/Users/DESKTOP-SHIPU-W2/projects/ISP-billing-and-radius/backups/tmp_$timestamp database_${DbName}_${timestamp}.sql && openssl enc -aes-256-cbc -salt -pbkdf2 -in /mnt/c/Users/DESKTOP-SHIPU-W2/projects/ISP-billing-and-radius/backups/tmp_$timestamp/backup_$timestamp.tar.gz -out /mnt/c/Users/DESKTOP-SHIPU-W2/projects/ISP-billing-and-radius/backups/backup_$timestamp.tar.gz.enc -pass file:/mnt/c/Users/DESKTOP-SHIPU-W2/projects/ISP-billing-and-radius/secrets/backup_key.txt"
+$wslTmpStage = ConvertTo-WslPath $tmpStage
+$wslBackupDir = ConvertTo-WslPath $backupDir
+$wslKeyFile = ConvertTo-WslPath $keyFile
+
+wsl bash -c "tar -czf $wslTmpStage/backup_$timestamp.tar.gz -C $wslTmpStage database_${DbName}_${timestamp}.sql && openssl enc -aes-256-cbc -salt -pbkdf2 -in $wslTmpStage/backup_$timestamp.tar.gz -out $wslBackupDir/backup_$timestamp.tar.gz.enc -pass file:$wslKeyFile"
 
 if (Test-Path $encFile) {
     $hash = (Get-FileHash -Path $encFile -Algorithm SHA256).Hash.ToLower()
