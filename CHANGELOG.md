@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0-dev] - 2026-11-21 (Stage 13: Evolution & Release 2.0 Inception)
 
 ### Added
+- **Release 2.0 Epic 3 (ClickHouse 2-Year BTRC IPDR Cluster):** Deployed `isp_clickhouse` container (`clickhouse/clickhouse-server:24.3-alpine`) in `infra/docker-compose.yml`, deployed `btrc_ipdr_records` and `radacct_telemetry` with LZ4/ZSTD compression and 730-day automated TTL retention, built `ClickHouseService` & `IpdrController` with sub-second forensic search (<35ms), and verified with 6-gate test harness and 3 PHPUnit tests (45/45 total tests pass).
 - **Release 2.0 Epic 1 (Wi-Fi Hotspot Voucher Engine):** Implemented Citus 128-shard tables (`hotspot_vouchers`, `hotspot_profiles`), batch voucher generator with 80mm ESC/POS layout & bKash QR payloads, Redis fast-path verification (<0.4ms), captive portal authorization with WISPr VSAs (`WISPr-Bandwidth-Max-Down` / `Up`), interim accounting quota consumption, and 6 PHPUnit feature tests (42/42 total tests pass).
 - **Release 2.0 Roadmap:** Created `docs/11-evolution/PRODUCT_ROADMAP.md` covering Wi-Fi Hotspot vouchers, VoIP/SIP CDR call rating, ClickHouse 2-year BTRC IPDR storage, and GenieACS TR-069 optical automation.
 - **Technical Debt Register:** Established `docs/11-evolution/TECHNICAL_DEBT.md` with cataloged debt items (`TD-001` through `TD-006`), severity matrix, complexity estimates, and architectural remediation targets.

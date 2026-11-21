@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\V1\AiCopilotController;
 use App\Http\Controllers\Api\V1\HotspotVoucherController;
 use App\Http\Controllers\Api\V1\InvoiceController;
+use App\Http\Controllers\Api\V1\IpdrController;
 use App\Http\Controllers\Api\V1\IpPoolController;
 use App\Http\Controllers\Api\V1\MetricsController;
 use App\Http\Controllers\Api\V1\MfsWebhookController;
@@ -61,6 +62,13 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/vouchers/{code}/receipt', [HotspotVoucherController::class, 'renderReceipt']);
         Route::post('/vouchers/auth-verify', [HotspotVoucherController::class, 'authVerify']);
         Route::post('/vouchers/{code}/consume', [HotspotVoucherController::class, 'consumeQuota']);
+    });
+
+    // Release 2.0 (Epic 3): ClickHouse BTRC 2-Year IPDR Telemetry Endpoints
+    Route::prefix('ipdr')->group(function (): void {
+        Route::get('/status', [IpdrController::class, 'status']);
+        Route::post('/ingest', [IpdrController::class, 'ingest']);
+        Route::get('/search', [IpdrController::class, 'search']);
     });
 
     // Phase 6: Multi-Tenant Scoped & RBAC Protected Endpoints

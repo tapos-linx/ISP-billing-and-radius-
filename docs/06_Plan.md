@@ -47,3 +47,4 @@
 ## Release 2.0 Carrier Expansion Trackers
 
 - [x] **Release 2.0 / Epic 1: Wi-Fi Hotspot Voucher Management System** — Citus 128-shard tables (`hotspot_vouchers`, `hotspot_profiles`), batch voucher generator with 80mm ESC/POS thermal layout, Redis fast-path verification (<0.4ms), and WISPr rate-limiting VSAs (`scripts/Run-HotspotVoucherVerification.ps1`, `scripts/run_hotspot_voucher_verification.sh`, `scripts/test_release2_hotspot_voucher.py`, `release2_epic1_hotspot_voucher_report.md`)
+- [x] **Release 2.0 / Epic 3: ClickHouse 2-Year BTRC IPDR Cluster** — Provisioned `isp_clickhouse` (ClickHouse 24.3), 730-day automated TTL retention (`toIntervalDay(730)`), sub-second forensic search (<35ms), and bulk ingestion micro-batching (`scripts/Run-ClickHouseIpdrVerification.ps1`, `scripts/run_clickhouse_ipdr_verification.sh`, `scripts/test_release2_clickhouse_ipdr.py`, `release2_epic3_clickhouse_ipdr_report.md`)

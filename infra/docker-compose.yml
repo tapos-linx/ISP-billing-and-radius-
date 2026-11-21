@@ -7,6 +7,7 @@ volumes:
   citus_master_data:
   redis_data:
   radius_logs:
+  clickhouse_data:
 
 secrets:
   db_password:
@@ -162,6 +163,28 @@ services:
     networks:
       - isp_internal_net
     restart: always
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: isp_clickhouse
+    ports:
+      - "${CLICKHOUSE_BIND_IP:-0.0.0.0}:${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_TCP_PORT:-9000}:9000"
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-isp_telemetry}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - isp_internal_net
+      - isp_external_net
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8123/ping || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
 
   laravel_app:
     build:
